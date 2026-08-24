@@ -341,11 +341,16 @@ recordAudioBtn.addEventListener("click", () => {
 // ---------- Escanear tarjeta de contacto (OCR local, sin servidor) ----------
 
 function parseCardText(text) {
-  const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-  const email = emailMatch ? emailMatch[0] : null;
+  const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+  // El OCR a veces mete espacios de más dentro del correo ("pablo. hernandez@spc.com");
+  // si no encaja tal cual, se reintenta quitando los espacios sueltos alrededor de puntos y "@".
+  const email = (text.match(EMAIL_RE) || text.replace(/\s*([.@])\s*/g, "$1").match(EMAIL_RE) || [null])[0];
 
-  const websiteMatch = text.match(/\b(?:https?:\/\/)?www\.[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\.[a-zA-Z]{2,})?\S*/i);
-  const website = websiteMatch ? websiteMatch[0] : null;
+  // El punto de "www." a veces se pierde en el OCR ("wwwspc.com"), así que se
+  // acepta con o sin él.
+  const websiteMatch = text.match(/\bwww\.?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\.[a-zA-Z]{2,})?\S*/i);
+  const websiteRaw = websiteMatch ? websiteMatch[0] : null;
+  const website = websiteRaw ? websiteRaw.replace(/^www(?!\.)/i, "www.") : null;
 
   const phoneMatches = [...text.matchAll(/(\+?\d[\d\s().-]{6,}\d)/g)].map((m) => m[0].trim());
   const phones = [...new Set(phoneMatches)];
@@ -354,10 +359,10 @@ function parseCardText(text) {
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean)
-    .filter((l) => !(email && l.includes(email)))
-    .filter((l) => !(website && l.includes(website)))
+    .filter((l) => !(email && l.replace(/\s+/g, "").includes(email)))
+    .filter((l) => !(websiteRaw && l.includes(websiteRaw)))
     .filter((l) => !phones.some((p) => l.includes(p)))
-    .filter((l) => l.replace(/[^a-zA-Z0-9]/g, "").length >= 2);
+    .filter((l) => l.replace(/[^a-zA-Z0-9]/g, "").length >= 3);
 
   return { email, website, phones, lines, ...classifyLines(lines) };
 }
@@ -397,12 +402,21 @@ function classifyLines(lines) {
   // y siguen en minúscula (Nombre Apellido[s]) — así se distingue de nombres de
   // empresa en MAYÚSCULAS o de líneas sueltas de una sola palabra.
   const NAME_PATTERN = /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ'-]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ'-]+){1,3}$/;
-  let name = remaining.find((l) => NAME_PATTERN.test(l)) || null;
-  if (name) {
-    remaining.splice(remaining.indexOf(name), 1);
-  } else if (remaining.length) {
-    name = remaining.shift();
-  }
+  // Muchas tarjetas ponen el nombre TODO EN MAYÚSCULAS (ej. "PABLO HERNANDEZ").
+  const NAME_PATTERN_CAPS = /^[A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+){1,3}$/;
+  // Restos de web/correo/teléfono mal leídos que nunca deberían acabar en "Nombre".
+  const looksLikeJunk = (l) => /www|@|\.(com|es|net|org|io)\b|\d{2,}/i.test(l);
+
+  const takeName = (predicate) => {
+    const idx = remaining.findIndex(predicate);
+    if (idx === -1) return null;
+    return remaining.splice(idx, 1)[0];
+  };
+
+  let name =
+    takeName((l) => NAME_PATTERN.test(l)) ||
+    takeName((l) => NAME_PATTERN_CAPS.test(l) && !looksLikeJunk(l)) ||
+    takeName((l) => !looksLikeJunk(l));
 
   return { name, role, company, other: remaining };
 }
