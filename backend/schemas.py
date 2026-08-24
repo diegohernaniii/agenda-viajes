@@ -30,6 +30,28 @@ class AttachmentOut(BaseModel):
         from_attributes = True
 
 
+class LinkIn(BaseModel):
+    title: str = ""
+    url: str
+
+    @field_validator("url")
+    @classmethod
+    def url_must_be_http(cls, v: str) -> str:
+        v = v.strip()
+        if v and not (v.startswith("http://") or v.startswith("https://")):
+            raise ValueError("El enlace debe empezar por http:// o https://")
+        return v
+
+
+class LinkOut(BaseModel):
+    id: int
+    title: str
+    url: str
+
+    class Config:
+        from_attributes = True
+
+
 class TripIn(BaseModel):
     name: str
     purpose: str = ""
@@ -41,6 +63,7 @@ class TripIn(BaseModel):
     end_date: Optional[date] = None
     notes: str = ""
     travelers: List[TravelerIn] = []
+    links: List[LinkIn] = []
 
     @field_validator("name")
     @classmethod
@@ -74,6 +97,7 @@ class TripOut(BaseModel):
     travelers: List[TravelerOut] = []
     phones: List[str] = []
     attachments: List[AttachmentOut] = []
+    links: List[LinkOut] = []
 
     @field_validator("phones", mode="before")
     @classmethod

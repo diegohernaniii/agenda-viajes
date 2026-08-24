@@ -54,6 +54,9 @@ class Trip(Base):
     attachments = relationship(
         "Attachment", back_populates="trip", cascade="all, delete-orphan", order_by="Attachment.id"
     )
+    links = relationship(
+        "TripLink", back_populates="trip", cascade="all, delete-orphan", order_by="TripLink.id"
+    )
 
 
 class Traveler(Base):
@@ -74,6 +77,19 @@ class TripPhone(Base):
     phone = Column(String(50), nullable=False)
 
     trip = relationship("Trip", back_populates="phones")
+
+
+class TripLink(Base):
+    """Enlace a un documento externo (Word, Excel, carpeta de SharePoint...)."""
+
+    __tablename__ = "trip_links"
+
+    id = Column(Integer, primary_key=True)
+    trip_id = Column(Integer, ForeignKey("trips.id"), nullable=False)
+    title = Column(String(200), nullable=False, default="")
+    url = Column(String(1000), nullable=False)
+
+    trip = relationship("Trip", back_populates="links")
 
 
 class Attachment(Base):

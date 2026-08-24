@@ -272,6 +272,22 @@ tbody tr:hover { background: #f9fbfd; }
   display: block;
 }
 .attachment-audio-sm { height: 32px; max-width: 200px; }
+.link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #eaf3fb;
+  color: var(--primary);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  text-decoration: none;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.link-chip:hover { text-decoration: underline; }
 .attachment-caption {
   font-size: 11px;
   color: var(--text-muted);
@@ -350,6 +366,9 @@ tbody tr:hover { background: #f9fbfd; }
 .travelers-box { display: flex; flex-direction: column; gap: 8px; }
 .traveler-row { display: flex; gap: 8px; }
 .traveler-row input { flex: 1; }
+.link-row .link-title-input { flex: 1; }
+.link-row .link-url-input { flex: 2; }
+.links-box { display: flex; flex-direction: column; gap: 8px; }
 .traveler-remove {
   background: #fdeaea;
   color: var(--danger);
@@ -464,6 +483,9 @@ tbody tr:hover { background: #f9fbfd; }
 @media (max-width: 640px) {
   .form-row { flex-direction: column; }
   .container { padding: 16px; }
+  .link-row { flex-wrap: wrap; }
+  .link-row .link-title-input,
+  .link-row .link-url-input { flex-basis: 100%; }
 
   .topbar {
     flex-wrap: wrap;

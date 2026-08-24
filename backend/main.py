@@ -14,7 +14,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from auth import authenticate_user, get_current_user, hash_password, is_email_allowed, normalize_email
 from database import Base, SessionLocal, engine, get_db, run_migrations
-from models import AllowedEmail, Attachment, Traveler, Trip, TripPhone, User
+from models import AllowedEmail, Attachment, Traveler, Trip, TripLink, TripPhone, User
 from schemas import AttachmentOut, TripIn, TripOut
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -185,6 +185,9 @@ def create_trip(payload: TripIn, db: Session = Depends(get_db), user: User = Dep
     )
     trip.travelers = [Traveler(full_name=t.full_name) for t in payload.travelers if t.full_name.strip()]
     trip.phones = [TripPhone(phone=p.strip()) for p in payload.phones if p.strip()]
+    trip.links = [
+        TripLink(title=l.title.strip(), url=l.url.strip()) for l in payload.links if l.url.strip()
+    ]
     db.add(trip)
     db.commit()
     db.refresh(trip)
@@ -219,6 +222,9 @@ def update_trip(
 
     trip.travelers = [Traveler(full_name=t.full_name) for t in payload.travelers if t.full_name.strip()]
     trip.phones = [TripPhone(phone=p.strip()) for p in payload.phones if p.strip()]
+    trip.links = [
+        TripLink(title=l.title.strip(), url=l.url.strip()) for l in payload.links if l.url.strip()
+    ]
 
     db.commit()
     db.refresh(trip)

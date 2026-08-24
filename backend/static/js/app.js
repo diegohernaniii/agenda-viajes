@@ -12,6 +12,7 @@ const modalTitle = document.getElementById("modalTitle");
 const formError = document.getElementById("formError");
 const travelersBox = document.getElementById("travelersBox");
 const phonesBox = document.getElementById("phonesBox");
+const linksBox = document.getElementById("linksBox");
 const attachmentsSection = document.getElementById("attachmentsSection");
 const attachmentsBox = document.getElementById("attachmentsBox");
 const attachmentsNewHint = document.getElementById("attachmentsNewHint");
@@ -33,6 +34,17 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function errorMessageFromDetail(detail) {
+  if (!detail) return "Error inesperado";
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d) => (d.msg || JSON.stringify(d)).replace(/^Value error,\s*/, ""))
+      .join(" · ");
+  }
+  return "Error inesperado";
+}
+
 async function api(path, options = {}) {
   const isFormData = options.body instanceof FormData;
   const res = await fetch(path, {
@@ -45,7 +57,7 @@ async function api(path, options = {}) {
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || "Error inesperado");
+    throw new Error(errorMessageFromDetail(body.detail));
   }
   if (res.status === 204) return null;
   return res.json();
@@ -61,14 +73,15 @@ function matchesSearch(trip, term) {
     trip.contact_email,
     ...(trip.phones || []),
     ...trip.travelers.map((t) => t.full_name),
+    ...(trip.links || []).map((l) => l.title),
   ]
     .join(" ")
     .toLowerCase();
   return haystack.includes(term);
 }
 
-function attachmentsPreviewHtml(attachments) {
-  if (!attachments.length) return `<span style="color:var(--text-muted)">—</span>`;
+function attachmentsPreviewHtml(attachments, links) {
+  if (!attachments.length && !links.length) return `<span style="color:var(--text-muted)">—</span>`;
   const items = attachments.map((att) => {
     const caption = att.title
       ? `<div class="attachment-caption">${escapeHtml(att.title)}</div>`
@@ -78,7 +91,11 @@ function attachmentsPreviewHtml(attachments) {
     }
     return `<div class="attachments-preview-item"><audio controls src="${att.url}" class="attachment-audio-sm"></audio>${caption}</div>`;
   });
-  return `<div class="attachments-preview">${items.join("")}</div>`;
+  const linkItems = links.map(
+    (l) =>
+      `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener" class="link-chip">&#128196; ${escapeHtml(l.title || l.url)}</a>`
+  );
+  return `<div class="attachments-preview">${items.join("")}${linkItems.join("")}</div>`;
 }
 
 function renderTrips() {
@@ -109,7 +126,7 @@ function renderTrips() {
         ${phonesHtml}
         <div style="color:var(--text-muted);font-size:12px;">${escapeHtml(trip.contact_email) || ""}</div>
       </td>
-      <td>${attachmentsPreviewHtml(trip.attachments || [])}</td>
+      <td>${attachmentsPreviewHtml(trip.attachments || [], trip.links || [])}</td>
       <td class="actions-cell">
         <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${trip.id}">Editar</button>
         <button class="btn btn-danger btn-sm" data-action="delete" data-id="${trip.id}">Eliminar</button>
@@ -144,6 +161,18 @@ function addListRow(container, inputClass, placeholder, value = "") {
 
 const addTravelerRow = (value = "") => addListRow(travelersBox, "traveler-input", "Nombre y apellidos", value);
 const addPhoneRow = (value = "") => addListRow(phonesBox, "phone-input", "+34 600 000 000", value);
+
+function addLinkRow(title = "", url = "") {
+  const row = document.createElement("div");
+  row.className = "traveler-row link-row";
+  row.innerHTML = `
+    <input type="text" class="link-title-input" placeholder="Título (ej. Itinerario)" value="${escapeHtml(title)}">
+    <input type="url" class="link-url-input" placeholder="https://..." value="${escapeHtml(url)}">
+    <button type="button" class="traveler-remove">&times;</button>
+  `;
+  row.querySelector(".traveler-remove").addEventListener("click", () => row.remove());
+  linksBox.appendChild(row);
+}
 
 // ---------- Modal: adjuntos ----------
 
@@ -336,6 +365,11 @@ function openModal(trip = null) {
     addPhoneRow();
   }
 
+  linksBox.innerHTML = "";
+  if (trip && trip.links && trip.links.length) {
+    trip.links.forEach((l) => addLinkRow(l.title, l.url));
+  }
+
   attachmentUploadHint.style.display = "none";
   if (trip) {
     attachmentsSection.style.display = "block";
@@ -374,6 +408,13 @@ async function saveTrip() {
     .map((i) => i.value.trim())
     .filter(Boolean);
 
+  const links = Array.from(document.querySelectorAll(".link-row"))
+    .map((row) => ({
+      title: row.querySelector(".link-title-input").value.trim(),
+      url: row.querySelector(".link-url-input").value.trim(),
+    }))
+    .filter((l) => l.url);
+
   const payload = {
     name,
     purpose: document.getElementById("tripPurpose").value.trim(),
@@ -385,6 +426,7 @@ async function saveTrip() {
     notes: document.getElementById("notes").value.trim(),
     travelers,
     phones,
+    links,
   };
 
   try {
@@ -419,6 +461,7 @@ document.getElementById("cancelBtn").addEventListener("click", closeModal);
 document.getElementById("saveBtn").addEventListener("click", saveTrip);
 document.getElementById("addTravelerBtn").addEventListener("click", () => addTravelerRow());
 document.getElementById("addPhoneBtn").addEventListener("click", () => addPhoneRow());
+document.getElementById("addLinkBtn").addEventListener("click", () => addLinkRow());
 modalOverlay.addEventListener("click", (e) => {
   if (e.target === modalOverlay) closeModal();
 });
