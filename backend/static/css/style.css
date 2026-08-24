@@ -418,6 +418,26 @@ tbody tr:hover { background: #f9fbfd; }
 }
 .attachment-hint { font-size: 12px; color: var(--text-muted); margin: 8px 0 0; }
 
+.card-scan-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  background: #f7f9fc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+.card-scan-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.card-scan-row > span { word-break: break-word; }
+
 .attachments-box {
   display: flex;
   flex-wrap: wrap;

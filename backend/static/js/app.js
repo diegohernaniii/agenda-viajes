@@ -21,6 +21,9 @@ const imageInput = document.getElementById("imageInput");
 const audioInput = document.getElementById("audioInput");
 const recordAudioBtn = document.getElementById("recordAudioBtn");
 const audioFileLabel = document.getElementById("audioFileLabel");
+const cardScanInput = document.getElementById("cardScanInput");
+const cardScanHint = document.getElementById("cardScanHint");
+const cardScanResults = document.getElementById("cardScanResults");
 
 function fmtDate(isoStr) {
   if (!isoStr) return "—";
@@ -335,10 +338,108 @@ recordAudioBtn.addEventListener("click", () => {
   }
 });
 
+// ---------- Escanear tarjeta de contacto (OCR local, sin servidor) ----------
+
+function parseCardText(text) {
+  const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  const email = emailMatch ? emailMatch[0] : null;
+
+  const phoneMatches = [...text.matchAll(/(\+?\d[\d\s().-]{6,}\d)/g)].map((m) => m[0].trim());
+  const phones = [...new Set(phoneMatches)];
+
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .filter((l) => !(email && l.includes(email)))
+    .filter((l) => !phones.some((p) => l.includes(p)))
+    .filter((l) => l.replace(/[^a-zA-Z0-9]/g, "").length >= 2);
+
+  return { email, phones, lines };
+}
+
+function renderCardScanResults(parsed) {
+  const parts = [];
+
+  if (parsed.email) {
+    parts.push(`
+      <div class="card-scan-row">
+        <span>&#9993; ${escapeHtml(parsed.email)}</span>
+        <button type="button" class="btn btn-secondary btn-sm" data-card-action="email" data-value="${escapeHtml(parsed.email)}">Usar como email</button>
+      </div>`);
+  }
+
+  parsed.phones.forEach((phone) => {
+    parts.push(`
+      <div class="card-scan-row">
+        <span>&#9742; ${escapeHtml(phone)}</span>
+        <button type="button" class="btn btn-secondary btn-sm" data-card-action="phone" data-value="${escapeHtml(phone)}">Añadir como teléfono</button>
+      </div>`);
+  });
+
+  parsed.lines.forEach((line) => {
+    parts.push(`
+      <div class="card-scan-row">
+        <span>${escapeHtml(line)}</span>
+        <button type="button" class="btn btn-secondary btn-sm" data-card-action="name" data-value="${escapeHtml(line)}">→ Nombre</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-card-action="role" data-value="${escapeHtml(line)}">→ Puesto</button>
+      </div>`);
+  });
+
+  if (!parts.length) {
+    cardScanResults.innerHTML = `<p class="section-hint" style="margin:4px 0 0;">No se ha detectado texto legible en la foto. Puedes intentarlo de nuevo con mejor luz/enfoque.</p>`;
+  } else {
+    cardScanResults.innerHTML = `<div class="card-scan-results">${parts.join("")}</div>`;
+  }
+  cardScanResults.style.display = "block";
+}
+
+cardScanInput.addEventListener("change", async () => {
+  const file = cardScanInput.files[0];
+  cardScanInput.value = "";
+  if (!file) return;
+
+  cardScanResults.style.display = "none";
+  cardScanHint.style.display = "block";
+  cardScanHint.textContent = "Leyendo la tarjeta... puede tardar unos segundos.";
+
+  try {
+    const { data } = await Tesseract.recognize(file, "spa+eng");
+    const parsed = parseCardText(data.text || "");
+    cardScanHint.style.display = "none";
+    renderCardScanResults(parsed);
+  } catch (err) {
+    cardScanHint.textContent = "No se pudo leer la imagen: " + err.message;
+  }
+});
+
+cardScanResults.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-card-action]");
+  if (!btn) return;
+  const value = btn.dataset.value;
+
+  if (btn.dataset.cardAction === "email") {
+    document.getElementById("contactEmail").value = value;
+  } else if (btn.dataset.cardAction === "phone") {
+    const emptyRow = Array.from(document.querySelectorAll(".phone-input")).find((i) => !i.value.trim());
+    if (emptyRow) emptyRow.value = value;
+    else addPhoneRow(value);
+  } else if (btn.dataset.cardAction === "name") {
+    document.getElementById("contactPerson").value = value;
+  } else if (btn.dataset.cardAction === "role") {
+    document.getElementById("contactRole").value = value;
+  }
+
+  btn.closest(".card-scan-row").style.opacity = "0.4";
+  btn.disabled = true;
+});
+
 // ---------- Modal: abrir/cerrar/guardar ----------
 
 function openModal(trip = null) {
   formError.style.display = "none";
+  cardScanResults.style.display = "none";
+  cardScanHint.style.display = "none";
   state.editingId = trip ? trip.id : null;
   modalTitle.textContent = trip ? "Editar viaje" : "Nuevo viaje";
 
