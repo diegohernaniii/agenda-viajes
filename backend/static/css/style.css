@@ -366,6 +366,17 @@ tbody tr:hover { background: #f9fbfd; }
   cursor: pointer;
 }
 .attachment-upload-btn:hover { background: #f0f6fb; }
+.attachment-upload-btn.recording {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  animation: recording-pulse 1.4s ease-in-out infinite;
+}
+.attachment-upload-btn-alt { font-size: 12px; color: var(--text-muted); }
+@keyframes recording-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
 .attachment-hint { font-size: 12px; color: var(--text-muted); margin: 8px 0 0; }
 
 .attachments-box {

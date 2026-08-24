@@ -116,9 +116,12 @@
               &#128247; Añadir foto
               <input type="file" id="imageInput" accept="image/*" capture="environment" multiple hidden>
             </label>
-            <label class="attachment-upload-btn">
+            <button type="button" class="attachment-upload-btn" id="recordAudioBtn">
               &#127908; Nota de voz
-              <input type="file" id="audioInput" accept="audio/*" capture hidden>
+            </button>
+            <label class="attachment-upload-btn attachment-upload-btn-alt" id="audioFileLabel" style="display:none;">
+              Subir archivo de audio
+              <input type="file" id="audioInput" accept="audio/*" hidden>
             </label>
           </div>
           <p class="attachment-hint" id="attachmentUploadHint" style="display:none;"></p>

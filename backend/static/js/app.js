@@ -18,6 +18,8 @@ const attachmentsNewHint = document.getElementById("attachmentsNewHint");
 const attachmentUploadHint = document.getElementById("attachmentUploadHint");
 const imageInput = document.getElementById("imageInput");
 const audioInput = document.getElementById("audioInput");
+const recordAudioBtn = document.getElementById("recordAudioBtn");
+const audioFileLabel = document.getElementById("audioFileLabel");
 
 function fmtDate(isoStr) {
   if (!isoStr) return "—";
@@ -190,6 +192,87 @@ async function deleteAttachment(attachmentId) {
   }
 }
 
+// ---------- Grabación de notas de voz ----------
+
+const canRecordAudio = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordingTimer = null;
+let recordingStartedAt = null;
+let discardRecording = false;
+
+if (!canRecordAudio) {
+  recordAudioBtn.style.display = "none";
+  audioFileLabel.style.display = "inline-flex";
+}
+
+function formatElapsed(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const mm = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const ss = String(totalSeconds % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+
+function resetRecordButton() {
+  recordAudioBtn.textContent = "\u{1F399}️ Nota de voz";
+  recordAudioBtn.classList.remove("recording");
+  clearInterval(recordingTimer);
+  recordingTimer = null;
+}
+
+async function startRecording() {
+  attachmentUploadHint.style.display = "none";
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recordedChunks = [];
+    const mimeType = ["audio/webm", "audio/mp4", "audio/ogg"].find((t) => MediaRecorder.isTypeSupported(t)) || "";
+    mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const type = mediaRecorder.mimeType || "audio/webm";
+      const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
+      const blob = new Blob(recordedChunks, { type });
+      const file = new File([blob], `nota-voz-${Date.now()}.${ext}`, { type });
+      resetRecordButton();
+      if (discardRecording) {
+        discardRecording = false;
+        return;
+      }
+      if (blob.size > 0) await uploadAttachment(file);
+    };
+
+    mediaRecorder.start();
+    recordingStartedAt = Date.now();
+    recordAudioBtn.classList.add("recording");
+    recordAudioBtn.textContent = `⏹ Detener (00:00)`;
+    recordingTimer = setInterval(() => {
+      recordAudioBtn.textContent = `⏹ Detener (${formatElapsed(Date.now() - recordingStartedAt)})`;
+    }, 500);
+  } catch (err) {
+    attachmentUploadHint.style.display = "block";
+    attachmentUploadHint.textContent = "No se pudo acceder al micrófono: " + err.message;
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+  }
+}
+
+recordAudioBtn.addEventListener("click", () => {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+});
+
 // ---------- Modal: abrir/cerrar/guardar ----------
 
 function openModal(trip = null) {
@@ -234,6 +317,10 @@ function openModal(trip = null) {
 }
 
 function closeModal() {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    discardRecording = true;
+    stopRecording();
+  }
   modalOverlay.classList.remove("open");
 }
 
