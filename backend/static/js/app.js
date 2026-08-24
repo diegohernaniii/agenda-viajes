@@ -344,6 +344,9 @@ function parseCardText(text) {
   const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
   const email = emailMatch ? emailMatch[0] : null;
 
+  const websiteMatch = text.match(/\b(?:https?:\/\/)?www\.[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\.[a-zA-Z]{2,})?\S*/i);
+  const website = websiteMatch ? websiteMatch[0] : null;
+
   const phoneMatches = [...text.matchAll(/(\+?\d[\d\s().-]{6,}\d)/g)].map((m) => m[0].trim());
   const phones = [...new Set(phoneMatches)];
 
@@ -352,44 +355,158 @@ function parseCardText(text) {
     .map((l) => l.trim())
     .filter(Boolean)
     .filter((l) => !(email && l.includes(email)))
+    .filter((l) => !(website && l.includes(website)))
     .filter((l) => !phones.some((p) => l.includes(p)))
     .filter((l) => l.replace(/[^a-zA-Z0-9]/g, "").length >= 2);
 
-  return { email, phones, lines };
+  return { email, website, phones, lines, ...classifyLines(lines) };
+}
+
+const ROLE_KEYWORDS = [
+  "director", "directora", "gerente", "manager", "presidente", "president", "ceo", "cfo", "cto",
+  "coo", "jefe", "jefa", "head of", "chief", "coordinador", "coordinadora", "coordinator",
+  "responsable", "business development", "sales", "comercial", "marketing", "ingeniero",
+  "ingeniera", "engineer", "consultor", "consultora", "consultant", "founder", "fundador",
+  "fundadora", "socio", "socia", "partner", "vicepresidente", "supervisor", "supervisora",
+  "analista", "analyst", "specialist", "especialista",
+];
+const COMPANY_HINTS = [
+  " s.l", " s.a", " sl", " sa", "inc.", "inc ", "llc", "ltd", "gmbh", "corp", "group", "grupo",
+  "aerospace", "solutions", "technologies", "systems", "industries",
+];
+
+function classifyLines(lines) {
+  let role = null;
+  let company = null;
+  const remaining = [];
+
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+    if (!role && ROLE_KEYWORDS.some((k) => lower.includes(k))) {
+      role = line;
+      continue;
+    }
+    if (!company && COMPANY_HINTS.some((k) => lower.includes(k))) {
+      company = line;
+      continue;
+    }
+    remaining.push(line);
+  }
+
+  const name = remaining.length ? remaining.shift() : null;
+  return { name, role, company, other: remaining };
+}
+
+function applyCardField(field, value) {
+  if (field === "email") {
+    document.getElementById("contactEmail").value = value;
+  } else if (field === "name") {
+    document.getElementById("contactPerson").value = value;
+  } else if (field === "role") {
+    document.getElementById("contactRole").value = value;
+  } else if (field === "notes") {
+    const notes = document.getElementById("notes");
+    notes.value = notes.value ? `${notes.value}\n${value}` : value;
+  } else if (field === "phone") {
+    const emptyRow = Array.from(document.querySelectorAll(".phone-input")).find((i) => !i.value.trim());
+    if (emptyRow) emptyRow.value = value;
+    else addPhoneRow(value);
+  } else if (field === "link") {
+    const url = value.startsWith("http") ? value : `https://${value}`;
+    addLinkRow("Web de la empresa", url);
+  }
+}
+
+function cardScanRow(label, value, appliedTo, actions) {
+  const tag = appliedTo ? `<span class="card-scan-tag">✓ usado como ${appliedTo}</span>` : "";
+  const buttons = actions
+    .map((a) => `<button type="button" class="btn btn-secondary btn-sm" data-card-action="${a.field}" data-value="${escapeHtml(value)}">${a.label}</button>`)
+    .join("");
+  return `
+    <div class="card-scan-row">
+      <span>${label} ${escapeHtml(value)}</span>
+      ${tag}
+      ${buttons}
+    </div>`;
 }
 
 function renderCardScanResults(parsed) {
   const parts = [];
 
+  // Autorrelleno: solo si el campo está vacío, para no pisar algo que ya se había escrito a mano.
+  const emailField = document.getElementById("contactEmail");
+  const nameField = document.getElementById("contactPerson");
+  const roleField = document.getElementById("contactRole");
+  let phoneApplied = false;
+
   if (parsed.email) {
-    parts.push(`
-      <div class="card-scan-row">
-        <span>&#9993; ${escapeHtml(parsed.email)}</span>
-        <button type="button" class="btn btn-secondary btn-sm" data-card-action="email" data-value="${escapeHtml(parsed.email)}">Usar como email</button>
-      </div>`);
+    if (!emailField.value.trim()) applyCardField("email", parsed.email);
+    parts.push(cardScanRow("&#9993;", parsed.email, emailField.value === parsed.email ? "email" : null, [
+      { field: "email", label: "Usar como email" },
+    ]));
   }
 
   parsed.phones.forEach((phone) => {
-    parts.push(`
-      <div class="card-scan-row">
-        <span>&#9742; ${escapeHtml(phone)}</span>
-        <button type="button" class="btn btn-secondary btn-sm" data-card-action="phone" data-value="${escapeHtml(phone)}">Añadir como teléfono</button>
-      </div>`);
+    let applied = null;
+    if (!phoneApplied) {
+      applyCardField("phone", phone);
+      phoneApplied = true;
+      applied = "teléfono";
+    }
+    parts.push(cardScanRow("&#9742;", phone, applied, [{ field: "phone", label: "Añadir como teléfono" }]));
   });
 
-  parsed.lines.forEach((line) => {
-    parts.push(`
-      <div class="card-scan-row">
-        <span>${escapeHtml(line)}</span>
-        <button type="button" class="btn btn-secondary btn-sm" data-card-action="name" data-value="${escapeHtml(line)}">→ Nombre</button>
-        <button type="button" class="btn btn-secondary btn-sm" data-card-action="role" data-value="${escapeHtml(line)}">→ Puesto</button>
-      </div>`);
+  if (parsed.website) {
+    parts.push(cardScanRow("&#127760;", parsed.website, null, [{ field: "link", label: "Añadir como enlace" }]));
+  }
+
+  if (parsed.name) {
+    if (!nameField.value.trim()) applyCardField("name", parsed.name);
+    parts.push(
+      cardScanRow("", parsed.name, nameField.value === parsed.name ? "nombre" : null, [
+        { field: "name", label: "→ Nombre" },
+        { field: "role", label: "→ Puesto" },
+      ])
+    );
+  }
+
+  if (parsed.role) {
+    if (!roleField.value.trim()) applyCardField("role", parsed.role);
+    parts.push(
+      cardScanRow("", parsed.role, roleField.value === parsed.role ? "puesto" : null, [
+        { field: "name", label: "→ Nombre" },
+        { field: "role", label: "→ Puesto" },
+      ])
+    );
+  }
+
+  if (parsed.company) {
+    parts.push(
+      cardScanRow("&#127970;", parsed.company, null, [
+        { field: "name", label: "→ Nombre" },
+        { field: "notes", label: "→ Notas" },
+      ])
+    );
+  }
+
+  parsed.other.forEach((line) => {
+    parts.push(
+      cardScanRow("", line, null, [
+        { field: "name", label: "→ Nombre" },
+        { field: "role", label: "→ Puesto" },
+        { field: "notes", label: "→ Notas" },
+      ])
+    );
   });
 
   if (!parts.length) {
     cardScanResults.innerHTML = `<p class="section-hint" style="margin:4px 0 0;">No se ha detectado texto legible en la foto. Puedes intentarlo de nuevo con mejor luz/enfoque.</p>`;
   } else {
-    cardScanResults.innerHTML = `<div class="card-scan-results">${parts.join("")}</div>`;
+    cardScanResults.innerHTML = `
+      <div class="card-scan-results">
+        <p class="section-hint" style="margin:0 0 4px;">Se han rellenado los campos vacíos automáticamente. Si algo no cuadra, usa los botones para corregirlo.</p>
+        ${parts.join("")}
+      </div>`;
   }
   cardScanResults.style.display = "block";
 }
@@ -416,20 +533,7 @@ cardScanInput.addEventListener("change", async () => {
 cardScanResults.addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-card-action]");
   if (!btn) return;
-  const value = btn.dataset.value;
-
-  if (btn.dataset.cardAction === "email") {
-    document.getElementById("contactEmail").value = value;
-  } else if (btn.dataset.cardAction === "phone") {
-    const emptyRow = Array.from(document.querySelectorAll(".phone-input")).find((i) => !i.value.trim());
-    if (emptyRow) emptyRow.value = value;
-    else addPhoneRow(value);
-  } else if (btn.dataset.cardAction === "name") {
-    document.getElementById("contactPerson").value = value;
-  } else if (btn.dataset.cardAction === "role") {
-    document.getElementById("contactRole").value = value;
-  }
-
+  applyCardField(btn.dataset.cardAction, btn.dataset.value);
   btn.closest(".card-scan-row").style.opacity = "0.4";
   btn.disabled = true;
 });
