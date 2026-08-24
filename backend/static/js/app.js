@@ -494,14 +494,21 @@ const NAME_PATTERN_CAPS = /^[A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+){1,3}$/;
 const looksLikeJunk = (l) =>
   /www|@|\.(com|es|net|org|io)\b|\d{2,}/i.test(l) || /[^a-zA-ZÁÉÍÓÚÑáéíóúñ\s'.-]/.test(l);
 
+// Quita símbolos sueltos pegados al principio o al final (restos de líneas
+// decorativas u otros elementos mal leídos por el OCR), sin tocar los
+// espacios ni la puntuación que sí forman parte del texto real.
+function cleanCandidateText(line) {
+  return line.replace(/^[^a-zA-ZÁÉÍÓÚÑáéíóúñ0-9]+|[^a-zA-ZÁÉÍÓÚÑáéíóúñ0-9]+$/g, "").trim();
+}
+
 function classifyLines(lines) {
   const roleIdx = lines.findIndex((l) => ROLE_KEYWORDS.some((k) => l.toLowerCase().includes(k)));
-  const role = roleIdx !== -1 ? lines[roleIdx] : null;
+  const role = roleIdx !== -1 ? cleanCandidateText(lines[roleIdx]) : null;
 
   const companyIdx = lines.findIndex(
     (l, i) => i !== roleIdx && COMPANY_HINTS.some((k) => l.toLowerCase().includes(k))
   );
-  const company = companyIdx !== -1 ? lines[companyIdx] : null;
+  const company = companyIdx !== -1 ? cleanCandidateText(lines[companyIdx]) : null;
 
   const usedIdx = new Set([roleIdx, companyIdx].filter((i) => i !== -1));
   const availableIdx = lines.map((_, i) => i).filter((i) => !usedIdx.has(i));
@@ -522,13 +529,15 @@ function classifyLines(lines) {
     const found = availableIdx.find((i) => isNameLike(lines[i]));
     nameIdx = found === undefined ? -1 : found;
   }
-  if (nameIdx === -1) {
-    const found = availableIdx.find((i) => !looksLikeJunk(lines[i]));
-    nameIdx = found === undefined ? -1 : found;
-  }
+  // Si ninguna línea encaja de forma fiable con el patrón de un nombre, se
+  // deja vacío en vez de adivinar a ciegas (mejor pedir que lo rellenes tú a
+  // que se cuele el nombre de la empresa o cualquier otra cosa mal leída).
 
-  const name = nameIdx !== -1 ? lines[nameIdx] : null;
-  const other = availableIdx.filter((i) => i !== nameIdx).map((i) => lines[i]);
+  const name = nameIdx !== -1 ? cleanCandidateText(lines[nameIdx]) : null;
+  const other = availableIdx
+    .filter((i) => i !== nameIdx)
+    .map((i) => cleanCandidateText(lines[i]))
+    .filter(Boolean);
 
   return { name, role, company, other };
 }
