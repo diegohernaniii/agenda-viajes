@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda de Viajes</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-brand"><span>&#9992;</span> Agenda de Viajes</div>
+    <div class="topbar-user">
+      <span class="sync-indicator"><span class="sync-dot"></span> Sincronizado</span>
+      <span>{{ full_name }}</span>
+      <a href="/logout">Salir</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="toolbar">
+      <input type="text" id="searchInput" class="search-input" placeholder="Buscar por viaje, persona, contacto o email...">
+      <button class="btn btn-primary" id="newTripBtn">+ Nuevo viaje</button>
+    </div>
+
+    <div class="card">
+      <table id="tripsTable">
+        <thead>
+          <tr>
+            <th>Viaje</th>
+            <th>Personas</th>
+            <th>Ida</th>
+            <th>Vuelta</th>
+            <th>Contacto</th>
+            <th>Teléfono / Email</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tripsBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none;">
+        No hay viajes todavía. Pulsa "Nuevo viaje" para añadir el primero.
+      </div>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">Nuevo viaje</h2>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="formError" class="field-error" style="display:none;"></div>
+        <div class="form-group">
+          <label>Nombre del viaje</label>
+          <input type="text" id="tripName" placeholder="Ej. Congreso ESA - Toulouse">
+        </div>
+
+        <div class="form-group">
+          <label>Personas que viajan</label>
+          <div class="travelers-box" id="travelersBox"></div>
+          <button type="button" class="add-traveler-btn" id="addTravelerBtn">+ Añadir persona</button>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Fecha de ida</label>
+            <input type="date" id="startDate">
+          </div>
+          <div class="form-group">
+            <label>Fecha de vuelta</label>
+            <input type="date" id="endDate">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Persona que ha contactado</label>
+          <input type="text" id="contactPerson" placeholder="Nombre de quien solicita el viaje">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Teléfono de contacto</label>
+            <input type="text" id="contactPhone" placeholder="+34 600 000 000">
+          </div>
+          <div class="form-group">
+            <label>Correo de contacto</label>
+            <input type="email" id="contactEmail" placeholder="nombre@empresa.com">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Notas</label>
+          <textarea id="notes" placeholder="Observaciones adicionales"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelBtn">Cancelar</button>
+        <button class="btn btn-primary" id="saveBtn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda de Viajes · Acceso</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="login-icon">&#9992;</span>
+      <h1>Agenda de Viajes</h1>
+      <p>Accede con tu usuario para consultar y gestionar los viajes</p>
+    </div>
+    {% if error %}
+    <div class="alert-error">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/login" class="login-form">
+      <label>
+        Correo electrónico
+        <input type="email" name="email" autocomplete="email" required autofocus>
+      </label>
+      <label>
+        Contraseña
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit">Entrar</button>
+    </form>
+    <p class="login-alt">¿Primera vez? <a href="/register">Regístrate con tu correo</a></p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda de Viajes · Registro</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="login-icon">&#9992;</span>
+      <h1>Crear cuenta</h1>
+      <p>Solo los correos autorizados por un administrador pueden registrarse</p>
+    </div>
+    {% if error %}
+    <div class="alert-error">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/register" class="login-form">
+      <label>
+        Correo electrónico
+        <input type="email" name="email" autocomplete="email" required autofocus value="{{ email or '' }}">
+      </label>
+      <label>
+        Nombre completo
+        <input type="text" name="full_name" autocomplete="name" required value="{{ full_name or '' }}">
+      </label>
+      <label>
+        Contraseña
+        <input type="password" name="password" autocomplete="new-password" required minlength="6">
+      </label>
+      <label>
+        Repite la contraseña
+        <input type="password" name="password_confirm" autocomplete="new-password" required minlength="6">
+      </label>
+      <button type="submit">Crear cuenta</button>
+    </form>
+    <p class="login-alt">¿Ya tienes cuenta? <a href="/login">Inicia sesión</a></p>
+  </div>
+</body>
+</html>
