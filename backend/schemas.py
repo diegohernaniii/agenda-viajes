@@ -19,6 +19,7 @@ class TravelerOut(BaseModel):
 class AttachmentOut(BaseModel):
     id: int
     kind: str
+    title: str
     original_name: str
     content_type: str
     url: str

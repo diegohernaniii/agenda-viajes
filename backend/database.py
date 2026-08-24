@@ -32,6 +32,12 @@ def run_migrations():
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE trips ADD COLUMN purpose VARCHAR(150) NOT NULL DEFAULT ''"))
 
+    if "attachments" in inspector.get_table_names():
+        columns = [c["name"] for c in inspector.get_columns("attachments")]
+        if "title" not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE attachments ADD COLUMN title VARCHAR(200) NOT NULL DEFAULT ''"))
+
 
 def get_db():
     db = SessionLocal()

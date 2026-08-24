@@ -86,6 +86,7 @@ class Attachment(Base):
     kind = Column(String(10), nullable=False)  # "image" o "audio"
     stored_name = Column(String(255), nullable=False)
     original_name = Column(String(255), nullable=False, default="")
+    title = Column(String(200), nullable=False, default="")
     content_type = Column(String(100), nullable=False, default="")
     uploaded_by = Column(String(80), nullable=False, default="")
     created_at = Column(DateTime, default=datetime.utcnow)

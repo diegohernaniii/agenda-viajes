@@ -261,7 +261,8 @@ tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: #f9fbfd; }
 
 .trip-name { font-weight: 600; }
-.attachments-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; align-items: center; }
+.attachments-preview { display: flex; flex-wrap: wrap; gap: 10px; }
+.attachments-preview-item { max-width: 100px; }
 .attachment-thumb-sm {
   width: 44px;
   height: 44px;
@@ -271,6 +272,15 @@ tbody tr:hover { background: #f9fbfd; }
   display: block;
 }
 .attachment-audio-sm { height: 32px; max-width: 200px; }
+.attachment-caption {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .trip-dates { color: var(--text-muted); font-size: 13px; white-space: nowrap; }
 .pill {
   display: inline-block;
@@ -409,8 +419,18 @@ tbody tr:hover { background: #f9fbfd; }
   border-radius: 6px;
   display: block;
 }
-.attachment-item-audio { padding: 10px 12px; display: flex; align-items: center; }
+.attachment-item-audio { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
 .attachment-item-audio audio { max-width: 220px; height: 34px; }
+.attachment-title-input {
+  width: 88px;
+  margin-top: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: inherit;
+}
+.attachment-item-audio .attachment-title-input { width: 200px; }
 .attachment-remove {
   position: absolute;
   top: -8px;

@@ -239,6 +239,7 @@ def delete_trip(trip_id: int, db: Session = Depends(get_db), user: User = Depend
 async def upload_attachment(
     trip_id: int,
     file: UploadFile = File(...),
+    title: str = Form(""),
     db: Session = Depends(get_db),
     user: User = Depends(require_login),
 ):
@@ -256,7 +257,8 @@ async def upload_attachment(
 
     data = await file.read()
     if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=400, detail="El archivo es demasiado grande (máximo 15 MB)")
+        max_mb = MAX_UPLOAD_BYTES // (1024 * 1024)
+        raise HTTPException(status_code=400, detail=f"El archivo es demasiado grande (máximo {max_mb} MB)")
 
     trip_dir = UPLOADS_DIR / str(trip_id)
     trip_dir.mkdir(parents=True, exist_ok=True)
@@ -267,12 +269,34 @@ async def upload_attachment(
     attachment = Attachment(
         trip_id=trip_id,
         kind=kind,
+        title=title.strip(),
         stored_name=stored_name,
         original_name=file.filename or "",
         content_type=content_type,
         uploaded_by=user.full_name or user.email,
     )
     db.add(attachment)
+    db.commit()
+    db.refresh(attachment)
+    return attachment
+
+
+@app.patch("/api/trips/{trip_id}/attachments/{attachment_id}", response_model=AttachmentOut)
+def update_attachment(
+    trip_id: int,
+    attachment_id: int,
+    title: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_login),
+):
+    attachment = (
+        db.query(Attachment)
+        .filter(Attachment.id == attachment_id, Attachment.trip_id == trip_id)
+        .first()
+    )
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Adjunto no encontrado")
+    attachment.title = title.strip()
     db.commit()
     db.refresh(attachment)
     return attachment

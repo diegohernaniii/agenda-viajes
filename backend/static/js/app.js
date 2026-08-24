@@ -68,12 +68,15 @@ function matchesSearch(trip, term) {
 }
 
 function attachmentsPreviewHtml(attachments) {
-  if (!attachments.length) return "";
+  if (!attachments.length) return `<span style="color:var(--text-muted)">—</span>`;
   const items = attachments.map((att) => {
+    const caption = att.title
+      ? `<div class="attachment-caption">${escapeHtml(att.title)}</div>`
+      : "";
     if (att.kind === "image") {
-      return `<a href="${att.url}" target="_blank" rel="noopener"><img src="${att.url}" class="attachment-thumb-sm" alt="${escapeHtml(att.original_name)}"></a>`;
+      return `<div class="attachments-preview-item"><a href="${att.url}" target="_blank" rel="noopener"><img src="${att.url}" class="attachment-thumb-sm" alt="${escapeHtml(att.title || att.original_name)}"></a>${caption}</div>`;
     }
-    return `<audio controls src="${att.url}" class="attachment-audio-sm"></audio>`;
+    return `<div class="attachments-preview-item"><audio controls src="${att.url}" class="attachment-audio-sm"></audio>${caption}</div>`;
   });
   return `<div class="attachments-preview">${items.join("")}</div>`;
 }
@@ -95,10 +98,9 @@ function renderTrips() {
       : "—";
     const purposeHtml = trip.purpose ? `<div class="pill" style="margin-top:4px;">${escapeHtml(trip.purpose)}</div>` : "";
     const notesHtml = trip.notes ? `<div style="font-weight:400;color:var(--text-muted);font-size:12px;margin-top:4px;">${escapeHtml(trip.notes)}</div>` : "";
-    const attachmentsPreview = attachmentsPreviewHtml(trip.attachments || []);
 
     tr.innerHTML = `
-      <td class="trip-name">${escapeHtml(trip.name)}${purposeHtml}${notesHtml}${attachmentsPreview}</td>
+      <td class="trip-name">${escapeHtml(trip.name)}${purposeHtml}${notesHtml}</td>
       <td>${travelersHtml}</td>
       <td class="trip-dates">${fmtDate(trip.start_date)}</td>
       <td class="trip-dates">${fmtDate(trip.end_date)}</td>
@@ -107,6 +109,7 @@ function renderTrips() {
         ${phonesHtml}
         <div style="color:var(--text-muted);font-size:12px;">${escapeHtml(trip.contact_email) || ""}</div>
       </td>
+      <td>${attachmentsPreviewHtml(trip.attachments || [])}</td>
       <td class="actions-cell">
         <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${trip.id}">Editar</button>
         <button class="btn btn-danger btn-sm" data-action="delete" data-id="${trip.id}">Eliminar</button>
@@ -146,16 +149,19 @@ const addPhoneRow = (value = "") => addListRow(phonesBox, "phone-input", "+34 60
 
 function attachmentItemHtml(att) {
   const removeBtn = `<button type="button" class="attachment-remove" data-attachment-id="${att.id}">&times;</button>`;
+  const titleInput = `<input type="text" class="attachment-title-input" data-attachment-id="${att.id}" placeholder="Añadir título..." value="${escapeHtml(att.title)}">`;
   if (att.kind === "image") {
     return `
       <div class="attachment-item">
-        <a href="${att.url}" target="_blank" rel="noopener"><img src="${att.url}" class="attachment-thumb" alt="${escapeHtml(att.original_name)}"></a>
+        <a href="${att.url}" target="_blank" rel="noopener"><img src="${att.url}" class="attachment-thumb" alt="${escapeHtml(att.title || att.original_name)}"></a>
+        ${titleInput}
         ${removeBtn}
       </div>`;
   }
   return `
     <div class="attachment-item attachment-item-audio">
       <audio controls src="${att.url}"></audio>
+      ${titleInput}
       ${removeBtn}
     </div>`;
 }
@@ -184,6 +190,25 @@ async function uploadAttachment(file) {
     attachmentUploadHint.style.display = "none";
   } catch (err) {
     attachmentUploadHint.textContent = "No se pudo subir: " + err.message;
+  }
+}
+
+async function updateAttachmentTitle(attachmentId, title) {
+  try {
+    const formData = new FormData();
+    formData.append("title", title);
+    const updated = await api(`/api/trips/${state.editingId}/attachments/${attachmentId}`, {
+      method: "PATCH",
+      body: formData,
+    });
+    const trip = state.trips.find((t) => t.id === state.editingId);
+    if (trip) {
+      const att = (trip.attachments || []).find((a) => a.id === Number(attachmentId));
+      if (att) att.title = updated.title;
+    }
+  } catch (err) {
+    attachmentUploadHint.style.display = "block";
+    attachmentUploadHint.textContent = "No se pudo guardar el título: " + err.message;
   }
 }
 
@@ -416,6 +441,12 @@ attachmentsBox.addEventListener("click", (e) => {
   const btn = e.target.closest(".attachment-remove");
   if (!btn) return;
   deleteAttachment(btn.dataset.attachmentId);
+});
+
+attachmentsBox.addEventListener("change", (e) => {
+  const input = e.target.closest(".attachment-title-input");
+  if (!input) return;
+  updateAttachmentTitle(input.dataset.attachmentId, input.value.trim());
 });
 
 searchInput.addEventListener("input", (e) => {
