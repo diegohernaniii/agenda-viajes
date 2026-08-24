@@ -393,7 +393,17 @@ function classifyLines(lines) {
     remaining.push(line);
   }
 
-  const name = remaining.length ? remaining.shift() : null;
+  // Un nombre de persona suele ser dos o más palabras que empiezan por mayúscula
+  // y siguen en minúscula (Nombre Apellido[s]) — así se distingue de nombres de
+  // empresa en MAYÚSCULAS o de líneas sueltas de una sola palabra.
+  const NAME_PATTERN = /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ'-]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ'-]+){1,3}$/;
+  let name = remaining.find((l) => NAME_PATTERN.test(l)) || null;
+  if (name) {
+    remaining.splice(remaining.indexOf(name), 1);
+  } else if (remaining.length) {
+    name = remaining.shift();
+  }
+
   return { name, role, company, other: remaining };
 }
 
