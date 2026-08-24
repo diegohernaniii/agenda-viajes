@@ -86,6 +86,55 @@ body {
   margin-bottom: 16px;
 }
 
+/* ---------- Landing ---------- */
+
+.landing-body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+}
+
+.landing-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.landing-logo {
+  width: 260px;
+  max-width: 70vw;
+  margin-bottom: 28px;
+}
+
+.landing-hero h1 {
+  font-size: 30px;
+  margin: 0 0 12px;
+  color: var(--primary-dark);
+}
+
+.landing-subtitle {
+  color: var(--text-muted);
+  font-size: 16px;
+  max-width: 480px;
+  line-height: 1.5;
+  margin: 0 0 32px;
+}
+
+.landing-actions { display: flex; gap: 14px; }
+.landing-actions .btn { padding: 12px 26px; font-size: 15px; }
+
+.landing-footer {
+  text-align: center;
+  padding: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* ---------- App shell ---------- */
 
 .topbar {
@@ -143,6 +192,37 @@ body {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
+}
+
+.page-title { font-size: 22px; margin: 0 0 20px; }
+
+.admin-section { margin-bottom: 36px; }
+.admin-section h2 { font-size: 16px; margin: 0 0 4px; }
+.section-hint { color: var(--text-muted); font-size: 13px; margin: 0 0 14px; }
+
+.inline-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.inline-form input {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.inline-form input[name="email"] { min-width: 240px; flex: 1; }
+.inline-form input[name="note"] { min-width: 160px; }
+
+.alert-ok {
+  background: #e9f7ef;
+  color: var(--success);
+  border: 1px solid #c7ecd6;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
 }
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }

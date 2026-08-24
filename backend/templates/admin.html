@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administración · Agenda de Viajes</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-brand"><span>&#9992;</span> Agenda de Viajes</div>
+    <div class="topbar-user">
+      <a href="/dashboard">Viajes</a>
+      <span>{{ full_name }}</span>
+      <a href="/logout">Salir</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1 class="page-title">Administración</h1>
+
+    {% if error %}<div class="alert-error">{{ error }}</div>{% endif %}
+    {% if ok %}<div class="alert-ok">{{ ok }}</div>{% endif %}
+
+    <section class="admin-section">
+      <h2>Correos autorizados a registrarse</h2>
+      <p class="section-hint">Solo quien tenga su correo en esta lista puede crear una cuenta en /register.</p>
+
+      <form method="post" action="/admin/allowed-emails/add" class="inline-form">
+        <input type="email" name="email" placeholder="correo@satlantis.com" required>
+        <input type="text" name="note" placeholder="Nota (opcional)">
+        <button type="submit" class="btn btn-primary btn-sm">+ Añadir</button>
+      </form>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr><th>Correo</th><th>Nota</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for a in allowed_emails %}
+            <tr>
+              <td>{{ a.email }}</td>
+              <td>{{ a.note or "—" }}</td>
+              <td class="actions-cell">
+                <form method="post" action="/admin/allowed-emails/{{ a.id }}/delete" onsubmit="return confirm('¿Quitar {{ a.email }} de la lista de correos autorizados?');">
+                  <button type="submit" class="btn btn-danger btn-sm">Quitar</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="empty-state">No hay correos autorizados todavía.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Usuarios registrados</h2>
+      <p class="section-hint">Personas que ya han creado su cuenta.</p>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr><th>Correo</th><th>Nombre</th><th>Rol</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td>{{ u.email }}</td>
+              <td>{{ u.full_name }}</td>
+              <td>{{ "Administrador" if u.is_admin else "Usuario" }}</td>
+              <td class="actions-cell">
+                <form method="post" action="/admin/users/{{ u.id }}/toggle-admin" style="display:inline;">
+                  <button type="submit" class="btn btn-secondary btn-sm">
+                    {{ "Quitar admin" if u.is_admin else "Hacer admin" }}
+                  </button>
+                </form>
+                {% if u.id != current_user_id %}
+                <form method="post" action="/admin/users/{{ u.id }}/delete" style="display:inline;" onsubmit="return confirm('¿Eliminar la cuenta de {{ u.email }}? Podrá volver a registrarse si su correo sigue autorizado.');">
+                  <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="empty-state">Todavía no se ha registrado nadie.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

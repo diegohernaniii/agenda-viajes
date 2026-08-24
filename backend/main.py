@@ -11,13 +11,14 @@ from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from auth import authenticate_user, get_current_user, hash_password, is_email_allowed, normalize_email
-from database import Base, SessionLocal, engine, get_db
-from models import Traveler, Trip, User
+from database import Base, SessionLocal, engine, get_db, run_migrations
+from models import AllowedEmail, Traveler, Trip, User
 from schemas import TripIn, TripOut
 
 BASE_DIR = Path(__file__).resolve().parent
 
 Base.metadata.create_all(bind=engine)
+run_migrations()
 
 SECRET_KEY = os.environ.get("AGENDA_SECRET_KEY")
 if not SECRET_KEY:
@@ -38,12 +39,18 @@ def require_login(request: Request, db: Session = Depends(get_db)) -> User:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autenticado")
 
 
+def require_admin(user: User = Depends(require_login)) -> User:
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo administradores")
+    return user
+
+
 # ---------- Páginas ----------
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     if request.session.get("user_id"):
-        return RedirectResponse("/", status_code=302)
+        return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse("login.html", {"request": request, "error": None})
 
 
@@ -62,7 +69,8 @@ def login_submit(request: Request, email: str = Form(""), password: str = Form("
         )
     request.session["user_id"] = user.id
     request.session["full_name"] = user.full_name
-    return RedirectResponse("/", status_code=302)
+    request.session["is_admin"] = user.is_admin
+    return RedirectResponse("/dashboard", status_code=302)
 
 
 @app.get("/logout")
@@ -74,7 +82,7 @@ def logout(request: Request):
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
     if request.session.get("user_id"):
-        return RedirectResponse("/", status_code=302)
+        return RedirectResponse("/dashboard", status_code=302)
     return templates.TemplateResponse("register.html", {"request": request, "error": None})
 
 
@@ -120,17 +128,30 @@ def register_submit(
 
         request.session["user_id"] = user.id
         request.session["full_name"] = user.full_name
-        return RedirectResponse("/", status_code=302)
+        request.session["is_admin"] = user.is_admin
+        return RedirectResponse("/dashboard", status_code=302)
     finally:
         db.close()
 
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request):
+def landing(request: Request):
+    if request.session.get("user_id"):
+        return RedirectResponse("/dashboard", status_code=302)
+    return templates.TemplateResponse("landing.html", {"request": request})
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
     if not request.session.get("user_id"):
         return RedirectResponse("/login", status_code=302)
     return templates.TemplateResponse(
-        "index.html", {"request": request, "full_name": request.session.get("full_name", "")}
+        "index.html",
+        {
+            "request": request,
+            "full_name": request.session.get("full_name", ""),
+            "is_admin": request.session.get("is_admin", False),
+        },
     )
 
 
@@ -203,8 +224,93 @@ def delete_trip(trip_id: int, db: Session = Depends(get_db), user: User = Depend
     return JSONResponse(content=None, status_code=204)
 
 
+# ---------- Administración ----------
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_page(
+    request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+):
+    allowed_emails = db.query(AllowedEmail).order_by(AllowedEmail.email).all()
+    users = db.query(User).order_by(User.email).all()
+    return templates.TemplateResponse(
+        "admin.html",
+        {
+            "request": request,
+            "full_name": request.session.get("full_name", ""),
+            "allowed_emails": allowed_emails,
+            "users": users,
+            "current_user_id": admin.id,
+            "error": request.query_params.get("error"),
+            "ok": request.query_params.get("ok"),
+        },
+    )
+
+
+@app.post("/admin/allowed-emails/add")
+def admin_add_allowed_email(
+    email: str = Form(""),
+    note: str = Form(""),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    email_norm = normalize_email(email)
+    if not email_norm:
+        return RedirectResponse("/admin?error=Correo+vacío", status_code=302)
+    if db.query(AllowedEmail).filter(AllowedEmail.email == email_norm).first():
+        return RedirectResponse("/admin?error=Ese+correo+ya+estaba+en+la+lista", status_code=302)
+    db.add(AllowedEmail(email=email_norm, note=note.strip()))
+    db.commit()
+    return RedirectResponse("/admin?ok=Correo+añadido", status_code=302)
+
+
+@app.post("/admin/allowed-emails/{allowed_id}/delete")
+def admin_delete_allowed_email(
+    allowed_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+):
+    allowed = db.query(AllowedEmail).filter(AllowedEmail.id == allowed_id).first()
+    if allowed:
+        db.delete(allowed)
+        db.commit()
+    return RedirectResponse("/admin?ok=Correo+eliminado", status_code=302)
+
+
+@app.post("/admin/users/{user_id}/delete")
+def admin_delete_user(
+    user_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+):
+    if user_id == admin.id:
+        return RedirectResponse("/admin?error=No+puedes+eliminar+tu+propia+cuenta", status_code=302)
+    target = db.query(User).filter(User.id == user_id).first()
+    if target:
+        db.delete(target)
+        db.commit()
+    return RedirectResponse("/admin?ok=Usuario+eliminado", status_code=302)
+
+
+@app.post("/admin/users/{user_id}/toggle-admin")
+def admin_toggle_admin(
+    user_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+):
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        return RedirectResponse("/admin?error=Usuario+no+encontrado", status_code=302)
+    if target.id == admin.id and target.is_admin:
+        remaining_admins = db.query(User).filter(User.is_admin.is_(True), User.id != admin.id).count()
+        if remaining_admins == 0:
+            return RedirectResponse(
+                "/admin?error=No+puedes+quitarte+el+rol+de+administrador+siendo+el+único",
+                status_code=302,
+            )
+    target.is_admin = not target.is_admin
+    db.commit()
+    return RedirectResponse("/admin?ok=Actualizado", status_code=302)
+
+
 @app.exception_handler(HTTPException)
 async def auth_redirect_handler(request: Request, exc: HTTPException):
-    if exc.status_code == 401 and not request.url.path.startswith("/api/"):
-        return RedirectResponse("/login", status_code=302)
+    if not request.url.path.startswith("/api/"):
+        if exc.status_code == 401:
+            return RedirectResponse("/login", status_code=302)
+        if exc.status_code == 403:
+            return RedirectResponse("/dashboard", status_code=302)
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
