@@ -128,7 +128,7 @@
         </div>
 
         <div class="form-group" id="attachmentsSection" style="display:none;">
-          <label>Fotos y notas de voz</label>
+          <label>Fotos, notas de voz y documentos</label>
           <div class="attachments-box" id="attachmentsBox"></div>
           <div class="attachment-upload-row">
             <button type="button" class="attachment-upload-btn" id="photoCameraBtn">&#128247; Usar cámara</button>
@@ -142,6 +142,10 @@
             <label class="attachment-upload-btn attachment-upload-btn-alt" id="audioFileLabel" style="display:none;">
               Subir archivo de audio
               <input type="file" id="audioInput" accept="audio/*" hidden>
+            </label>
+            <label class="attachment-upload-btn">
+              &#128206; Adjuntar documento
+              <input type="file" id="docInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.odt,.ods,.odp" multiple hidden>
             </label>
           </div>
           <p class="attachment-hint" id="attachmentUploadHint" style="display:none;"></p>

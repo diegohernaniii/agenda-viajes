@@ -522,6 +522,16 @@ tbody tr:hover { background: #f9fbfd; }
   font-family: inherit;
 }
 .attachment-item-audio .attachment-title-input { width: 200px; }
+.attachment-item-file { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; max-width: 220px; }
+.attachment-file-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  word-break: break-word;
+}
+.attachment-file-link:hover { text-decoration: underline; }
+.attachment-item-file .attachment-title-input { width: 200px; }
 .attachment-remove {
   position: absolute;
   top: -8px;

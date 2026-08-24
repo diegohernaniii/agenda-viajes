@@ -19,6 +19,7 @@ const attachmentsNewHint = document.getElementById("attachmentsNewHint");
 const attachmentUploadHint = document.getElementById("attachmentUploadHint");
 const imageInput = document.getElementById("imageInput");
 const audioInput = document.getElementById("audioInput");
+const docInput = document.getElementById("docInput");
 const recordAudioBtn = document.getElementById("recordAudioBtn");
 const audioFileLabel = document.getElementById("audioFileLabel");
 const cardScanInput = document.getElementById("cardScanInput");
@@ -99,7 +100,10 @@ function attachmentsPreviewHtml(attachments, links) {
     if (att.kind === "image") {
       return `<div class="attachments-preview-item"><a href="${att.url}" target="_blank" rel="noopener"><img src="${att.url}" class="attachment-thumb-sm" alt="${escapeHtml(att.title || att.original_name)}"></a>${caption}</div>`;
     }
-    return `<div class="attachments-preview-item"><audio controls src="${att.url}" class="attachment-audio-sm"></audio>${caption}</div>`;
+    if (att.kind === "audio") {
+      return `<div class="attachments-preview-item"><audio controls src="${att.url}" class="attachment-audio-sm"></audio>${caption}</div>`;
+    }
+    return `<a href="${att.url}" target="_blank" rel="noopener" class="link-chip">&#128206; ${escapeHtml(att.title || att.original_name)}</a>`;
   });
   const linkItems = links.map(
     (l) =>
@@ -197,9 +201,17 @@ function attachmentItemHtml(att) {
         ${removeBtn}
       </div>`;
   }
+  if (att.kind === "audio") {
+    return `
+      <div class="attachment-item attachment-item-audio">
+        <audio controls src="${att.url}"></audio>
+        ${titleInput}
+        ${removeBtn}
+      </div>`;
+  }
   return `
-    <div class="attachment-item attachment-item-audio">
-      <audio controls src="${att.url}"></audio>
+    <div class="attachment-item attachment-item-file">
+      <a href="${att.url}" target="_blank" rel="noopener" class="attachment-file-link">&#128206; ${escapeHtml(att.original_name)}</a>
       ${titleInput}
       ${removeBtn}
     </div>`;
@@ -211,12 +223,41 @@ function renderAttachments(attachments) {
     : `<p class="section-hint" style="margin:0;">Todavía no hay fotos ni notas de voz.</p>`;
 }
 
+// Reduce el tamaño de las fotos antes de subirlas (misma calidad en pantalla,
+// muchas veces menos peso en disco), tanto si vienen de la cámara como de la
+// galería, en móvil o en ordenador. No se toca nada que no sea una imagen.
+async function compressImageFile(file, maxDimension = 1600, quality = 0.8) {
+  if (!file.type.startsWith("image/") || file.type === "image/svg+xml") return file;
+  if (file.size < 300 * 1024) return file;
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, width, height);
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+    if (!blob || blob.size >= file.size) return file;
+
+    const newName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+    return new File([blob], newName, { type: "image/jpeg" });
+  } catch (err) {
+    return file;
+  }
+}
+
 async function uploadAttachment(file) {
   attachmentUploadHint.style.display = "block";
   attachmentUploadHint.textContent = "Subiendo...";
   try {
+    const toUpload = await compressImageFile(file);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", toUpload);
     const attachment = await api(`/api/trips/${state.editingId}/attachments`, {
       method: "POST",
       body: formData,
@@ -768,6 +809,13 @@ imageInput.addEventListener("change", async () => {
     await uploadAttachment(file);
   }
   imageInput.value = "";
+});
+
+docInput.addEventListener("change", async () => {
+  for (const file of Array.from(docInput.files)) {
+    await uploadAttachment(file);
+  }
+  docInput.value = "";
 });
 
 audioInput.addEventListener("change", async () => {

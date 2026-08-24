@@ -22,6 +22,27 @@ UPLOADS_DIR = BASE_DIR / "data" / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
+# Documentos "de oficina" que se pueden adjuntar además de fotos y audio.
+# Deliberadamente NO se admite HTML/SVG/JS ni ejecutables: si se sirvieran
+# desde el propio dominio podrían ejecutar código en el navegador de quien
+# los abra (riesgo de XSS), a diferencia de un PDF o un Word.
+ALLOWED_DOCUMENT_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.presentation",
+    "text/plain",
+    "text/csv",
+    "application/zip",
+    "application/x-zip-compressed",
+}
+
 Base.metadata.create_all(bind=engine)
 run_migrations()
 
@@ -258,8 +279,10 @@ async def upload_attachment(
         kind = "image"
     elif content_type.startswith("audio/"):
         kind = "audio"
+    elif content_type in ALLOWED_DOCUMENT_TYPES:
+        kind = "file"
     else:
-        raise HTTPException(status_code=400, detail=f"Solo se admiten imágenes o audios ({content_type})")
+        raise HTTPException(status_code=400, detail=f"Tipo de archivo no admitido ({content_type})")
 
     data = await file.read()
     if len(data) > MAX_UPLOAD_BYTES:
