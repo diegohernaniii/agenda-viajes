@@ -70,8 +70,6 @@ def login_submit(request: Request, email: str = Form(""), password: str = Form("
             status_code=401,
         )
     request.session["user_id"] = user.id
-    request.session["full_name"] = user.full_name
-    request.session["is_admin"] = user.is_admin
     return RedirectResponse("/dashboard", status_code=302)
 
 
@@ -129,8 +127,6 @@ def register_submit(
         db.refresh(user)
 
         request.session["user_id"] = user.id
-        request.session["full_name"] = user.full_name
-        request.session["is_admin"] = user.is_admin
         return RedirectResponse("/dashboard", status_code=302)
     finally:
         db.close()
@@ -144,15 +140,19 @@ def landing(request: Request):
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request):
+def dashboard(request: Request, db: Session = Depends(get_db)):
     if not request.session.get("user_id"):
+        return RedirectResponse("/login", status_code=302)
+    user = db.query(User).filter(User.id == request.session["user_id"]).first()
+    if not user:
+        request.session.clear()
         return RedirectResponse("/login", status_code=302)
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
-            "full_name": request.session.get("full_name", ""),
-            "is_admin": request.session.get("is_admin", False),
+            "full_name": user.full_name,
+            "is_admin": user.is_admin,
         },
     )
 
@@ -238,7 +238,7 @@ def admin_page(
         "admin.html",
         {
             "request": request,
-            "full_name": request.session.get("full_name", ""),
+            "full_name": admin.full_name,
             "allowed_emails": allowed_emails,
             "users": users,
             "current_user_id": admin.id,
