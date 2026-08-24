@@ -1,5 +1,6 @@
 import os
 import secrets
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -30,6 +31,7 @@ app = FastAPI(title="Agenda de Viajes")
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, same_site="lax")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+templates.env.globals["asset_version"] = str(int(time.time()))
 
 
 def require_login(request: Request, db: Session = Depends(get_db)) -> User:
