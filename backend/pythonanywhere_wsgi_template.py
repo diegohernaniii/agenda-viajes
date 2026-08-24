@@ -15,7 +15,7 @@ path = "/home/TUUSUARIO/agenda-viajes/backend"
 if path not in sys.path:
     sys.path.insert(0, path)
 
-from a2wsgi import ASGIMiddleware
+from wsgi_bridge import wsgi_from_asgi
 from main import app as asgi_app
 
-application = ASGIMiddleware(asgi_app)
+application = wsgi_from_asgi(asgi_app)
