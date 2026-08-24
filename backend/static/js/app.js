@@ -24,6 +24,13 @@ const audioFileLabel = document.getElementById("audioFileLabel");
 const cardScanInput = document.getElementById("cardScanInput");
 const cardScanHint = document.getElementById("cardScanHint");
 const cardScanResults = document.getElementById("cardScanResults");
+const scanCardCameraBtn = document.getElementById("scanCardCameraBtn");
+const photoCameraBtn = document.getElementById("photoCameraBtn");
+const cameraOverlay = document.getElementById("cameraOverlay");
+const cameraVideo = document.getElementById("cameraVideo");
+const cameraHint = document.getElementById("cameraHint");
+const cameraShutterBtn = document.getElementById("cameraShutterBtn");
+const cameraCancelBtn = document.getElementById("cameraCancelBtn");
 
 function fmtDate(isoStr) {
   if (!isoStr) return "—";
@@ -338,6 +345,61 @@ recordAudioBtn.addEventListener("click", () => {
   }
 });
 
+// ---------- Cámara reutilizable (foto de viaje y escaneo de tarjeta) ----------
+
+let cameraStream = null;
+let cameraOnCapture = null;
+
+async function openCamera(onCapture) {
+  cameraOnCapture = onCapture;
+  cameraHint.style.display = "none";
+  cameraOverlay.classList.add("open");
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+      audio: false,
+    });
+    cameraVideo.srcObject = cameraStream;
+  } catch (err) {
+    cameraHint.style.display = "block";
+    cameraHint.textContent = "No se pudo acceder a la cámara: " + err.message;
+  }
+}
+
+function closeCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+  cameraVideo.srcObject = null;
+  cameraOverlay.classList.remove("open");
+  cameraOnCapture = null;
+}
+
+function captureCameraPhoto() {
+  if (!cameraStream) return;
+  const canvas = document.createElement("canvas");
+  canvas.width = cameraVideo.videoWidth;
+  canvas.height = cameraVideo.videoHeight;
+  canvas.getContext("2d").drawImage(cameraVideo, 0, 0);
+  canvas.toBlob(
+    (blob) => {
+      if (!blob) return;
+      const file = new File([blob], `foto-${Date.now()}.jpg`, { type: "image/jpeg" });
+      const callback = cameraOnCapture;
+      closeCamera();
+      if (callback) callback(file);
+    },
+    "image/jpeg",
+    0.9
+  );
+}
+
+cameraShutterBtn.addEventListener("click", captureCameraPhoto);
+cameraCancelBtn.addEventListener("click", closeCamera);
+scanCardCameraBtn.addEventListener("click", () => openCamera(runCardScan));
+photoCameraBtn.addEventListener("click", () => openCamera(uploadAttachment));
+
 // ---------- Escanear tarjeta de contacto (OCR local, sin servidor) ----------
 
 function parseCardText(text) {
@@ -535,11 +597,7 @@ function renderCardScanResults(parsed) {
   cardScanResults.style.display = "block";
 }
 
-cardScanInput.addEventListener("change", async () => {
-  const file = cardScanInput.files[0];
-  cardScanInput.value = "";
-  if (!file) return;
-
+async function runCardScan(file) {
   cardScanResults.style.display = "none";
   cardScanHint.style.display = "block";
   cardScanHint.textContent = "Leyendo la tarjeta... puede tardar unos segundos.";
@@ -552,6 +610,12 @@ cardScanInput.addEventListener("change", async () => {
   } catch (err) {
     cardScanHint.textContent = "No se pudo leer la imagen: " + err.message;
   }
+}
+
+cardScanInput.addEventListener("change", () => {
+  const file = cardScanInput.files[0];
+  cardScanInput.value = "";
+  if (file) runCardScan(file);
 });
 
 cardScanResults.addEventListener("click", (e) => {
@@ -617,6 +681,7 @@ function closeModal() {
     discardRecording = true;
     stopRecording();
   }
+  closeCamera();
   modalOverlay.classList.remove("open");
 }
 
