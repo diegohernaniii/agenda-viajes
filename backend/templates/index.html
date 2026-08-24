@@ -10,7 +10,7 @@
   <header class="topbar">
     <div class="topbar-brand"><span>&#9992;</span> Agenda de Viajes</div>
     <div class="topbar-user">
-      <span class="sync-indicator"><span class="sync-dot"></span> Sincronizado</span>
+      <span class="sync-indicator"><span class="sync-dot"></span> <span class="sync-text">Sincronizado</span></span>
       {% if is_admin %}<a href="/admin">Administración</a>{% endif %}
       <span>{{ full_name }}</span>
       <a href="/logout">Salir</a>
@@ -24,6 +24,7 @@
     </div>
 
     <div class="card">
+      <div class="table-scroll">
       <table id="tripsTable">
         <thead>
           <tr>
@@ -38,6 +39,7 @@
         </thead>
         <tbody id="tripsBody"></tbody>
       </table>
+      </div>
       <div class="empty-state" id="emptyState" style="display:none;">
         No hay viajes todavía. Pulsa "Nuevo viaje" para añadir el primero.
       </div>
