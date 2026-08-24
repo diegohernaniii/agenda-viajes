@@ -28,6 +28,9 @@ def run_migrations():
         if "contact_role" not in columns:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE trips ADD COLUMN contact_role VARCHAR(150) NOT NULL DEFAULT ''"))
+        if "purpose" not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE trips ADD COLUMN purpose VARCHAR(150) NOT NULL DEFAULT ''"))
 
 
 def get_db():

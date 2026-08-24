@@ -33,6 +33,7 @@ class Trip(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(200), nullable=False)
+    purpose = Column(String(150), nullable=False, default="")
     contact_person = Column(String(150), nullable=False, default="")
     contact_role = Column(String(150), nullable=False, default="")
     contact_phone = Column(String(50), nullable=False, default="")

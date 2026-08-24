@@ -53,6 +53,7 @@ function matchesSearch(trip, term) {
   if (!term) return true;
   const haystack = [
     trip.name,
+    trip.purpose,
     trip.contact_person,
     trip.contact_role,
     trip.contact_email,
@@ -83,8 +84,11 @@ function renderTrips() {
       ? `<span class="pill" style="margin-left:6px;">&#128206; ${trip.attachments.length}</span>`
       : "";
 
+    const purposeHtml = trip.purpose ? `<div class="pill" style="margin-top:4px;">${escapeHtml(trip.purpose)}</div>` : "";
+    const notesHtml = trip.notes ? `<div style="font-weight:400;color:var(--text-muted);font-size:12px;margin-top:4px;">${escapeHtml(trip.notes)}</div>` : "";
+
     tr.innerHTML = `
-      <td class="trip-name">${escapeHtml(trip.name)}${attachmentBadge}${trip.notes ? `<div style="font-weight:400;color:var(--text-muted);font-size:12px;margin-top:4px;">${escapeHtml(trip.notes)}</div>` : ""}</td>
+      <td class="trip-name">${escapeHtml(trip.name)}${attachmentBadge}${purposeHtml}${notesHtml}</td>
       <td>${travelersHtml}</td>
       <td class="trip-dates">${fmtDate(trip.start_date)}</td>
       <td class="trip-dates">${fmtDate(trip.end_date)}</td>
@@ -194,6 +198,7 @@ function openModal(trip = null) {
   modalTitle.textContent = trip ? "Editar viaje" : "Nuevo viaje";
 
   document.getElementById("tripName").value = trip?.name || "";
+  document.getElementById("tripPurpose").value = trip?.purpose || "";
   document.getElementById("startDate").value = trip?.start_date || "";
   document.getElementById("endDate").value = trip?.end_date || "";
   document.getElementById("contactPerson").value = trip?.contact_person || "";
@@ -251,6 +256,7 @@ async function saveTrip() {
 
   const payload = {
     name,
+    purpose: document.getElementById("tripPurpose").value.trim(),
     start_date: document.getElementById("startDate").value || null,
     end_date: document.getElementById("endDate").value || null,
     contact_person: document.getElementById("contactPerson").value.trim(),

@@ -31,6 +31,7 @@ class AttachmentOut(BaseModel):
 
 class TripIn(BaseModel):
     name: str
+    purpose: str = ""
     contact_person: str = ""
     contact_role: str = ""
     phones: List[str] = []
@@ -59,6 +60,7 @@ class TripIn(BaseModel):
 class TripOut(BaseModel):
     id: int
     name: str
+    purpose: str
     contact_person: str
     contact_role: str
     contact_email: str

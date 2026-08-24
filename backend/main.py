@@ -174,6 +174,7 @@ def list_trips(db: Session = Depends(get_db), user: User = Depends(require_login
 def create_trip(payload: TripIn, db: Session = Depends(get_db), user: User = Depends(require_login)):
     trip = Trip(
         name=payload.name,
+        purpose=payload.purpose,
         contact_person=payload.contact_person,
         contact_role=payload.contact_role,
         contact_email=payload.contact_email or "",
@@ -207,6 +208,7 @@ def update_trip(
         raise HTTPException(status_code=404, detail="Viaje no encontrado")
 
     trip.name = payload.name
+    trip.purpose = payload.purpose
     trip.contact_person = payload.contact_person
     trip.contact_role = payload.contact_role
     trip.contact_email = payload.contact_email or ""
