@@ -11,6 +11,13 @@ const modalOverlay = document.getElementById("modalOverlay");
 const modalTitle = document.getElementById("modalTitle");
 const formError = document.getElementById("formError");
 const travelersBox = document.getElementById("travelersBox");
+const phonesBox = document.getElementById("phonesBox");
+const attachmentsSection = document.getElementById("attachmentsSection");
+const attachmentsBox = document.getElementById("attachmentsBox");
+const attachmentsNewHint = document.getElementById("attachmentsNewHint");
+const attachmentUploadHint = document.getElementById("attachmentUploadHint");
+const imageInput = document.getElementById("imageInput");
+const audioInput = document.getElementById("audioInput");
 
 function fmtDate(isoStr) {
   if (!isoStr) return "—";
@@ -25,8 +32,9 @@ function escapeHtml(str) {
 }
 
 async function api(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
   const res = await fetch(path, {
-    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    headers: isFormData ? { Accept: "application/json" } : { "Content-Type": "application/json", Accept: "application/json" },
     ...options,
   });
   if (res.status === 401) {
@@ -46,8 +54,9 @@ function matchesSearch(trip, term) {
   const haystack = [
     trip.name,
     trip.contact_person,
-    trip.contact_phone,
+    trip.contact_role,
     trip.contact_email,
+    ...(trip.phones || []),
     ...trip.travelers.map((t) => t.full_name),
   ]
     .join(" ")
@@ -67,15 +76,21 @@ function renderTrips() {
     const travelersHtml = trip.travelers.length
       ? trip.travelers.map((t) => `<span class="pill">${escapeHtml(t.full_name)}</span>`).join("")
       : `<span style="color:var(--text-muted)">—</span>`;
+    const phonesHtml = (trip.phones || []).length
+      ? trip.phones.map((p) => `<div>${escapeHtml(p)}</div>`).join("")
+      : "—";
+    const attachmentBadge = (trip.attachments || []).length
+      ? `<span class="pill" style="margin-left:6px;">&#128206; ${trip.attachments.length}</span>`
+      : "";
 
     tr.innerHTML = `
-      <td class="trip-name">${escapeHtml(trip.name)}${trip.notes ? `<div style="font-weight:400;color:var(--text-muted);font-size:12px;margin-top:4px;">${escapeHtml(trip.notes)}</div>` : ""}</td>
+      <td class="trip-name">${escapeHtml(trip.name)}${attachmentBadge}${trip.notes ? `<div style="font-weight:400;color:var(--text-muted);font-size:12px;margin-top:4px;">${escapeHtml(trip.notes)}</div>` : ""}</td>
       <td>${travelersHtml}</td>
       <td class="trip-dates">${fmtDate(trip.start_date)}</td>
       <td class="trip-dates">${fmtDate(trip.end_date)}</td>
-      <td>${escapeHtml(trip.contact_person) || "—"}</td>
+      <td>${escapeHtml(trip.contact_person) || "—"}${trip.contact_role ? `<div style="color:var(--text-muted);font-size:12px;">${escapeHtml(trip.contact_role)}</div>` : ""}</td>
       <td>
-        <div>${escapeHtml(trip.contact_phone) || "—"}</div>
+        ${phonesHtml}
         <div style="color:var(--text-muted);font-size:12px;">${escapeHtml(trip.contact_email) || ""}</div>
       </td>
       <td class="actions-cell">
@@ -97,18 +112,81 @@ async function loadTrips({ silent = false } = {}) {
   }
 }
 
-// ---------- Modal ----------
+// ---------- Modal: listas dinámicas (personas / teléfonos) ----------
 
-function addTravelerRow(value = "") {
+function addListRow(container, inputClass, placeholder, value = "") {
   const row = document.createElement("div");
   row.className = "traveler-row";
   row.innerHTML = `
-    <input type="text" class="traveler-input" placeholder="Nombre y apellidos" value="${escapeHtml(value)}">
+    <input type="text" class="${inputClass}" placeholder="${placeholder}" value="${escapeHtml(value)}">
     <button type="button" class="traveler-remove">&times;</button>
   `;
   row.querySelector(".traveler-remove").addEventListener("click", () => row.remove());
-  travelersBox.appendChild(row);
+  container.appendChild(row);
 }
+
+const addTravelerRow = (value = "") => addListRow(travelersBox, "traveler-input", "Nombre y apellidos", value);
+const addPhoneRow = (value = "") => addListRow(phonesBox, "phone-input", "+34 600 000 000", value);
+
+// ---------- Modal: adjuntos ----------
+
+function attachmentItemHtml(att) {
+  const removeBtn = `<button type="button" class="attachment-remove" data-attachment-id="${att.id}">&times;</button>`;
+  if (att.kind === "image") {
+    return `
+      <div class="attachment-item">
+        <a href="${att.url}" target="_blank" rel="noopener"><img src="${att.url}" class="attachment-thumb" alt="${escapeHtml(att.original_name)}"></a>
+        ${removeBtn}
+      </div>`;
+  }
+  return `
+    <div class="attachment-item attachment-item-audio">
+      <audio controls src="${att.url}"></audio>
+      ${removeBtn}
+    </div>`;
+}
+
+function renderAttachments(attachments) {
+  attachmentsBox.innerHTML = attachments.length
+    ? attachments.map(attachmentItemHtml).join("")
+    : `<p class="section-hint" style="margin:0;">Todavía no hay fotos ni notas de voz.</p>`;
+}
+
+async function uploadAttachment(file) {
+  attachmentUploadHint.style.display = "block";
+  attachmentUploadHint.textContent = "Subiendo...";
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    const attachment = await api(`/api/trips/${state.editingId}/attachments`, {
+      method: "POST",
+      body: formData,
+    });
+    const trip = state.trips.find((t) => t.id === state.editingId);
+    if (trip) {
+      trip.attachments = [...(trip.attachments || []), attachment];
+      renderAttachments(trip.attachments);
+    }
+    attachmentUploadHint.style.display = "none";
+  } catch (err) {
+    attachmentUploadHint.textContent = "No se pudo subir: " + err.message;
+  }
+}
+
+async function deleteAttachment(attachmentId) {
+  try {
+    await api(`/api/trips/${state.editingId}/attachments/${attachmentId}`, { method: "DELETE" });
+    const trip = state.trips.find((t) => t.id === state.editingId);
+    if (trip) {
+      trip.attachments = (trip.attachments || []).filter((a) => a.id !== Number(attachmentId));
+      renderAttachments(trip.attachments);
+    }
+  } catch (err) {
+    alert("No se pudo eliminar el adjunto: " + err.message);
+  }
+}
+
+// ---------- Modal: abrir/cerrar/guardar ----------
 
 function openModal(trip = null) {
   formError.style.display = "none";
@@ -119,7 +197,7 @@ function openModal(trip = null) {
   document.getElementById("startDate").value = trip?.start_date || "";
   document.getElementById("endDate").value = trip?.end_date || "";
   document.getElementById("contactPerson").value = trip?.contact_person || "";
-  document.getElementById("contactPhone").value = trip?.contact_phone || "";
+  document.getElementById("contactRole").value = trip?.contact_role || "";
   document.getElementById("contactEmail").value = trip?.contact_email || "";
   document.getElementById("notes").value = trip?.notes || "";
 
@@ -128,6 +206,23 @@ function openModal(trip = null) {
     trip.travelers.forEach((t) => addTravelerRow(t.full_name));
   } else {
     addTravelerRow();
+  }
+
+  phonesBox.innerHTML = "";
+  if (trip && trip.phones && trip.phones.length) {
+    trip.phones.forEach((p) => addPhoneRow(p));
+  } else {
+    addPhoneRow();
+  }
+
+  attachmentUploadHint.style.display = "none";
+  if (trip) {
+    attachmentsSection.style.display = "block";
+    attachmentsNewHint.style.display = "none";
+    renderAttachments(trip.attachments || []);
+  } else {
+    attachmentsSection.style.display = "none";
+    attachmentsNewHint.style.display = "block";
   }
 
   modalOverlay.classList.add("open");
@@ -150,15 +245,20 @@ async function saveTrip() {
     .filter(Boolean)
     .map((full_name) => ({ full_name }));
 
+  const phones = Array.from(document.querySelectorAll(".phone-input"))
+    .map((i) => i.value.trim())
+    .filter(Boolean);
+
   const payload = {
     name,
     start_date: document.getElementById("startDate").value || null,
     end_date: document.getElementById("endDate").value || null,
     contact_person: document.getElementById("contactPerson").value.trim(),
-    contact_phone: document.getElementById("contactPhone").value.trim(),
+    contact_role: document.getElementById("contactRole").value.trim(),
     contact_email: document.getElementById("contactEmail").value.trim(),
     notes: document.getElementById("notes").value.trim(),
     travelers,
+    phones,
   };
 
   try {
@@ -192,8 +292,29 @@ document.getElementById("modalClose").addEventListener("click", closeModal);
 document.getElementById("cancelBtn").addEventListener("click", closeModal);
 document.getElementById("saveBtn").addEventListener("click", saveTrip);
 document.getElementById("addTravelerBtn").addEventListener("click", () => addTravelerRow());
+document.getElementById("addPhoneBtn").addEventListener("click", () => addPhoneRow());
 modalOverlay.addEventListener("click", (e) => {
   if (e.target === modalOverlay) closeModal();
+});
+
+imageInput.addEventListener("change", async () => {
+  for (const file of Array.from(imageInput.files)) {
+    await uploadAttachment(file);
+  }
+  imageInput.value = "";
+});
+
+audioInput.addEventListener("change", async () => {
+  for (const file of Array.from(audioInput.files)) {
+    await uploadAttachment(file);
+  }
+  audioInput.value = "";
+});
+
+attachmentsBox.addEventListener("click", (e) => {
+  const btn = e.target.closest(".attachment-remove");
+  if (!btn) return;
+  deleteAttachment(btn.dataset.attachmentId);
 });
 
 searchInput.addEventListener("input", (e) => {

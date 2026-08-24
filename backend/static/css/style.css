@@ -352,6 +352,59 @@ tbody tr:hover { background: #f9fbfd; }
 
 .field-error { color: var(--danger); font-size: 13px; }
 
+.attachment-upload-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.attachment-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--primary);
+  cursor: pointer;
+}
+.attachment-upload-btn:hover { background: #f0f6fb; }
+.attachment-hint { font-size: 12px; color: var(--text-muted); margin: 8px 0 0; }
+
+.attachments-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.attachment-item {
+  position: relative;
+  background: #f7f9fc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+}
+.attachment-thumb {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+}
+.attachment-item-audio { padding: 10px 12px; display: flex; align-items: center; }
+.attachment-item-audio audio { max-width: 220px; height: 34px; }
+.attachment-remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: var(--danger);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
 .sync-indicator {
   font-size: 12px;
   color: var(--text-muted);

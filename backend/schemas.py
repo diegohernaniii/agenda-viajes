@@ -16,10 +16,24 @@ class TravelerOut(BaseModel):
         from_attributes = True
 
 
+class AttachmentOut(BaseModel):
+    id: int
+    kind: str
+    original_name: str
+    content_type: str
+    url: str
+    uploaded_by: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class TripIn(BaseModel):
     name: str
     contact_person: str = ""
-    contact_phone: str = ""
+    contact_role: str = ""
+    phones: List[str] = []
     contact_email: Optional[str] = ""
     start_date: Optional[date] = None
     end_date: Optional[date] = None
@@ -46,7 +60,7 @@ class TripOut(BaseModel):
     id: int
     name: str
     contact_person: str
-    contact_phone: str
+    contact_role: str
     contact_email: str
     start_date: Optional[date] = None
     end_date: Optional[date] = None
@@ -55,6 +69,15 @@ class TripOut(BaseModel):
     updated_at: datetime
     updated_by: str
     travelers: List[TravelerOut] = []
+    phones: List[str] = []
+    attachments: List[AttachmentOut] = []
+
+    @field_validator("phones", mode="before")
+    @classmethod
+    def extract_phones(cls, v):
+        if v and hasattr(v[0], "phone"):
+            return [p.phone for p in v]
+        return v
 
     class Config:
         from_attributes = True

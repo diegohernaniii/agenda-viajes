@@ -1,10 +1,11 @@
 import os
 import secrets
 import time
+import uuid
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -13,10 +14,13 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from auth import authenticate_user, get_current_user, hash_password, is_email_allowed, normalize_email
 from database import Base, SessionLocal, engine, get_db, run_migrations
-from models import AllowedEmail, Traveler, Trip, User
-from schemas import TripIn, TripOut
+from models import AllowedEmail, Attachment, Traveler, Trip, TripPhone, User
+from schemas import AttachmentOut, TripIn, TripOut
 
 BASE_DIR = Path(__file__).resolve().parent
+UPLOADS_DIR = BASE_DIR / "data" / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 
 Base.metadata.create_all(bind=engine)
 run_migrations()
@@ -30,6 +34,7 @@ if not SECRET_KEY:
 app = FastAPI(title="Agenda de Viajes")
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, same_site="lax")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 templates.env.globals["asset_version"] = str(int(time.time()))
 
@@ -170,7 +175,7 @@ def create_trip(payload: TripIn, db: Session = Depends(get_db), user: User = Dep
     trip = Trip(
         name=payload.name,
         contact_person=payload.contact_person,
-        contact_phone=payload.contact_phone,
+        contact_role=payload.contact_role,
         contact_email=payload.contact_email or "",
         start_date=payload.start_date,
         end_date=payload.end_date,
@@ -178,6 +183,7 @@ def create_trip(payload: TripIn, db: Session = Depends(get_db), user: User = Dep
         updated_by=user.full_name or user.email,
     )
     trip.travelers = [Traveler(full_name=t.full_name) for t in payload.travelers if t.full_name.strip()]
+    trip.phones = [TripPhone(phone=p.strip()) for p in payload.phones if p.strip()]
     db.add(trip)
     db.commit()
     db.refresh(trip)
@@ -202,7 +208,7 @@ def update_trip(
 
     trip.name = payload.name
     trip.contact_person = payload.contact_person
-    trip.contact_phone = payload.contact_phone
+    trip.contact_role = payload.contact_role
     trip.contact_email = payload.contact_email or ""
     trip.start_date = payload.start_date
     trip.end_date = payload.end_date
@@ -210,6 +216,7 @@ def update_trip(
     trip.updated_by = user.full_name or user.email
 
     trip.travelers = [Traveler(full_name=t.full_name) for t in payload.travelers if t.full_name.strip()]
+    trip.phones = [TripPhone(phone=p.strip()) for p in payload.phones if p.strip()]
 
     db.commit()
     db.refresh(trip)
@@ -222,6 +229,67 @@ def delete_trip(trip_id: int, db: Session = Depends(get_db), user: User = Depend
     if not trip:
         raise HTTPException(status_code=404, detail="Viaje no encontrado")
     db.delete(trip)
+    db.commit()
+    return JSONResponse(content=None, status_code=204)
+
+
+@app.post("/api/trips/{trip_id}/attachments", response_model=AttachmentOut, status_code=201)
+async def upload_attachment(
+    trip_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_login),
+):
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Viaje no encontrado")
+
+    content_type = file.content_type or ""
+    if content_type.startswith("image/"):
+        kind = "image"
+    elif content_type.startswith("audio/"):
+        kind = "audio"
+    else:
+        raise HTTPException(status_code=400, detail=f"Solo se admiten imágenes o audios ({content_type})")
+
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="El archivo es demasiado grande (máximo 15 MB)")
+
+    trip_dir = UPLOADS_DIR / str(trip_id)
+    trip_dir.mkdir(parents=True, exist_ok=True)
+    ext = Path(file.filename or "").suffix[:10]
+    stored_name = f"{uuid.uuid4().hex}{ext}"
+    (trip_dir / stored_name).write_bytes(data)
+
+    attachment = Attachment(
+        trip_id=trip_id,
+        kind=kind,
+        stored_name=stored_name,
+        original_name=file.filename or "",
+        content_type=content_type,
+        uploaded_by=user.full_name or user.email,
+    )
+    db.add(attachment)
+    db.commit()
+    db.refresh(attachment)
+    return attachment
+
+
+@app.delete("/api/trips/{trip_id}/attachments/{attachment_id}", status_code=204)
+def delete_attachment(
+    trip_id: int, attachment_id: int, db: Session = Depends(get_db), user: User = Depends(require_login)
+):
+    attachment = (
+        db.query(Attachment)
+        .filter(Attachment.id == attachment_id, Attachment.trip_id == trip_id)
+        .first()
+    )
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Adjunto no encontrado")
+    file_path = UPLOADS_DIR / str(trip_id) / attachment.stored_name
+    file_path.unlink(missing_ok=True)
+    db.delete(attachment)
     db.commit()
     return JSONResponse(content=None, status_code=204)
 

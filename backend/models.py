@@ -34,6 +34,7 @@ class Trip(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(200), nullable=False)
     contact_person = Column(String(150), nullable=False, default="")
+    contact_role = Column(String(150), nullable=False, default="")
     contact_phone = Column(String(50), nullable=False, default="")
     contact_email = Column(String(150), nullable=False, default="")
     start_date = Column(Date, nullable=True)
@@ -46,6 +47,12 @@ class Trip(Base):
     travelers = relationship(
         "Traveler", back_populates="trip", cascade="all, delete-orphan", order_by="Traveler.id"
     )
+    phones = relationship(
+        "TripPhone", back_populates="trip", cascade="all, delete-orphan", order_by="TripPhone.id"
+    )
+    attachments = relationship(
+        "Attachment", back_populates="trip", cascade="all, delete-orphan", order_by="Attachment.id"
+    )
 
 
 class Traveler(Base):
@@ -56,3 +63,34 @@ class Traveler(Base):
     full_name = Column(String(150), nullable=False)
 
     trip = relationship("Trip", back_populates="travelers")
+
+
+class TripPhone(Base):
+    __tablename__ = "trip_phones"
+
+    id = Column(Integer, primary_key=True)
+    trip_id = Column(Integer, ForeignKey("trips.id"), nullable=False)
+    phone = Column(String(50), nullable=False)
+
+    trip = relationship("Trip", back_populates="phones")
+
+
+class Attachment(Base):
+    """Foto o nota de voz adjunta a un viaje, guardada en disco."""
+
+    __tablename__ = "attachments"
+
+    id = Column(Integer, primary_key=True)
+    trip_id = Column(Integer, ForeignKey("trips.id"), nullable=False)
+    kind = Column(String(10), nullable=False)  # "image" o "audio"
+    stored_name = Column(String(255), nullable=False)
+    original_name = Column(String(255), nullable=False, default="")
+    content_type = Column(String(100), nullable=False, default="")
+    uploaded_by = Column(String(80), nullable=False, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    trip = relationship("Trip", back_populates="attachments")
+
+    @property
+    def url(self) -> str:
+        return f"/uploads/{self.trip_id}/{self.stored_name}"

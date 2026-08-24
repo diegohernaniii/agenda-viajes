@@ -23,6 +23,12 @@ def run_migrations():
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"))
 
+    if "trips" in inspector.get_table_names():
+        columns = [c["name"] for c in inspector.get_columns("trips")]
+        if "contact_role" not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE trips ADD COLUMN contact_role VARCHAR(150) NOT NULL DEFAULT ''"))
+
 
 def get_db():
     db = SessionLocal()

@@ -76,26 +76,49 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Persona que ha contactado</label>
-          <input type="text" id="contactPerson" placeholder="Nombre de quien solicita el viaje">
-        </div>
-
         <div class="form-row">
           <div class="form-group">
-            <label>Teléfono de contacto</label>
-            <input type="text" id="contactPhone" placeholder="+34 600 000 000">
+            <label>Persona que ha contactado</label>
+            <input type="text" id="contactPerson" placeholder="Nombre de quien solicita el viaje">
           </div>
           <div class="form-group">
-            <label>Correo de contacto</label>
-            <input type="email" id="contactEmail" placeholder="nombre@empresa.com">
+            <label>Puesto</label>
+            <input type="text" id="contactRole" placeholder="Ej. Business Development">
           </div>
+        </div>
+
+        <div class="form-group">
+          <label>Teléfonos de contacto</label>
+          <div class="travelers-box" id="phonesBox"></div>
+          <button type="button" class="add-traveler-btn" id="addPhoneBtn">+ Añadir teléfono</button>
+        </div>
+
+        <div class="form-group">
+          <label>Correo de contacto</label>
+          <input type="email" id="contactEmail" placeholder="nombre@empresa.com">
         </div>
 
         <div class="form-group">
           <label>Notas</label>
           <textarea id="notes" placeholder="Observaciones adicionales"></textarea>
         </div>
+
+        <div class="form-group" id="attachmentsSection" style="display:none;">
+          <label>Fotos y notas de voz</label>
+          <div class="attachments-box" id="attachmentsBox"></div>
+          <div class="attachment-upload-row">
+            <label class="attachment-upload-btn">
+              &#128247; Añadir foto
+              <input type="file" id="imageInput" accept="image/*" capture="environment" multiple hidden>
+            </label>
+            <label class="attachment-upload-btn">
+              &#127908; Nota de voz
+              <input type="file" id="audioInput" accept="audio/*" capture hidden>
+            </label>
+          </div>
+          <p class="attachment-hint" id="attachmentUploadHint" style="display:none;"></p>
+        </div>
+        <p class="section-hint" id="attachmentsNewHint">Guarda el viaje primero para poder añadir fotos o notas de voz.</p>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" id="cancelBtn">Cancelar</button>
