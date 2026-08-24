@@ -20,7 +20,7 @@ from schemas import AttachmentOut, TripIn, TripOut
 BASE_DIR = Path(__file__).resolve().parent
 UPLOADS_DIR = BASE_DIR / "data" / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 Base.metadata.create_all(bind=engine)
 run_migrations()

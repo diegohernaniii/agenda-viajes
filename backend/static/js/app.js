@@ -67,6 +67,17 @@ function matchesSearch(trip, term) {
   return haystack.includes(term);
 }
 
+function attachmentsPreviewHtml(attachments) {
+  if (!attachments.length) return "";
+  const items = attachments.map((att) => {
+    if (att.kind === "image") {
+      return `<a href="${att.url}" target="_blank" rel="noopener"><img src="${att.url}" class="attachment-thumb-sm" alt="${escapeHtml(att.original_name)}"></a>`;
+    }
+    return `<audio controls src="${att.url}" class="attachment-audio-sm"></audio>`;
+  });
+  return `<div class="attachments-preview">${items.join("")}</div>`;
+}
+
 function renderTrips() {
   const term = state.searchTerm.trim().toLowerCase();
   const visible = state.trips.filter((t) => matchesSearch(t, term));
@@ -82,15 +93,12 @@ function renderTrips() {
     const phonesHtml = (trip.phones || []).length
       ? trip.phones.map((p) => `<div>${escapeHtml(p)}</div>`).join("")
       : "—";
-    const attachmentBadge = (trip.attachments || []).length
-      ? `<span class="pill" style="margin-left:6px;">&#128206; ${trip.attachments.length}</span>`
-      : "";
-
     const purposeHtml = trip.purpose ? `<div class="pill" style="margin-top:4px;">${escapeHtml(trip.purpose)}</div>` : "";
     const notesHtml = trip.notes ? `<div style="font-weight:400;color:var(--text-muted);font-size:12px;margin-top:4px;">${escapeHtml(trip.notes)}</div>` : "";
+    const attachmentsPreview = attachmentsPreviewHtml(trip.attachments || []);
 
     tr.innerHTML = `
-      <td class="trip-name">${escapeHtml(trip.name)}${attachmentBadge}${purposeHtml}${notesHtml}</td>
+      <td class="trip-name">${escapeHtml(trip.name)}${purposeHtml}${notesHtml}${attachmentsPreview}</td>
       <td>${travelersHtml}</td>
       <td class="trip-dates">${fmtDate(trip.start_date)}</td>
       <td class="trip-dates">${fmtDate(trip.end_date)}</td>
