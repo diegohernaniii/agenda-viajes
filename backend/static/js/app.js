@@ -442,45 +442,54 @@ const COMPANY_HINTS = [
   "aerospace", "solutions", "technologies", "systems", "industries",
 ];
 
-function classifyLines(lines) {
-  let role = null;
-  let company = null;
-  const remaining = [];
+// Un nombre de persona suele ser dos o más palabras que empiezan por mayúscula
+// y siguen en minúscula (Nombre Apellido[s]) — así se distingue de nombres de
+// empresa en MAYÚSCULAS o de líneas sueltas de una sola palabra.
+const NAME_PATTERN = /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ'-]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ'-]+){1,3}$/;
+// Muchas tarjetas ponen el nombre TODO EN MAYÚSCULAS (ej. "PABLO HERNANDEZ").
+const NAME_PATTERN_CAPS = /^[A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+){1,3}$/;
+// Restos de web/correo/teléfono mal leídos, o símbolos sueltos, que nunca
+// deberían acabar en "Nombre" ni "Puesto".
+const looksLikeJunk = (l) =>
+  /www|@|\.(com|es|net|org|io)\b|\d{2,}/i.test(l) || /[^a-zA-ZÁÉÍÓÚÑáéíóúñ\s'.-]/.test(l);
 
-  for (const line of lines) {
-    const lower = line.toLowerCase();
-    if (!role && ROLE_KEYWORDS.some((k) => lower.includes(k))) {
-      role = line;
-      continue;
-    }
-    if (!company && COMPANY_HINTS.some((k) => lower.includes(k))) {
-      company = line;
-      continue;
-    }
-    remaining.push(line);
+function classifyLines(lines) {
+  const roleIdx = lines.findIndex((l) => ROLE_KEYWORDS.some((k) => l.toLowerCase().includes(k)));
+  const role = roleIdx !== -1 ? lines[roleIdx] : null;
+
+  const companyIdx = lines.findIndex(
+    (l, i) => i !== roleIdx && COMPANY_HINTS.some((k) => l.toLowerCase().includes(k))
+  );
+  const company = companyIdx !== -1 ? lines[companyIdx] : null;
+
+  const usedIdx = new Set([roleIdx, companyIdx].filter((i) => i !== -1));
+  const availableIdx = lines.map((_, i) => i).filter((i) => !usedIdx.has(i));
+  const isNameLike = (l) => (NAME_PATTERN.test(l) || NAME_PATTERN_CAPS.test(l)) && !looksLikeJunk(l);
+
+  // El nombre casi siempre está pegado al puesto en el diseño de la tarjeta
+  // (justo antes o justo después), así que se prioriza esa posición sobre
+  // cualquier otra línea en mayúsculas que "parezca" un nombre (como el logo
+  // o el nombre de la empresa, que suelen ir más arriba y separados).
+  let nameIdx = -1;
+  if (roleIdx !== -1) {
+    nameIdx = [roleIdx - 1, roleIdx + 1].find(
+      (i) => availableIdx.includes(i) && isNameLike(lines[i])
+    );
+    nameIdx = nameIdx === undefined ? -1 : nameIdx;
+  }
+  if (nameIdx === -1) {
+    const found = availableIdx.find((i) => isNameLike(lines[i]));
+    nameIdx = found === undefined ? -1 : found;
+  }
+  if (nameIdx === -1) {
+    const found = availableIdx.find((i) => !looksLikeJunk(lines[i]));
+    nameIdx = found === undefined ? -1 : found;
   }
 
-  // Un nombre de persona suele ser dos o más palabras que empiezan por mayúscula
-  // y siguen en minúscula (Nombre Apellido[s]) — así se distingue de nombres de
-  // empresa en MAYÚSCULAS o de líneas sueltas de una sola palabra.
-  const NAME_PATTERN = /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ'-]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ'-]+){1,3}$/;
-  // Muchas tarjetas ponen el nombre TODO EN MAYÚSCULAS (ej. "PABLO HERNANDEZ").
-  const NAME_PATTERN_CAPS = /^[A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+){1,3}$/;
-  // Restos de web/correo/teléfono mal leídos que nunca deberían acabar en "Nombre".
-  const looksLikeJunk = (l) => /www|@|\.(com|es|net|org|io)\b|\d{2,}/i.test(l);
+  const name = nameIdx !== -1 ? lines[nameIdx] : null;
+  const other = availableIdx.filter((i) => i !== nameIdx).map((i) => lines[i]);
 
-  const takeName = (predicate) => {
-    const idx = remaining.findIndex(predicate);
-    if (idx === -1) return null;
-    return remaining.splice(idx, 1)[0];
-  };
-
-  let name =
-    takeName((l) => NAME_PATTERN.test(l)) ||
-    takeName((l) => NAME_PATTERN_CAPS.test(l) && !looksLikeJunk(l)) ||
-    takeName((l) => !looksLikeJunk(l));
-
-  return { name, role, company, other: remaining };
+  return { name, role, company, other };
 }
 
 function applyCardField(field, value) {
@@ -523,7 +532,6 @@ function renderCardScanResults(parsed) {
   const emailField = document.getElementById("contactEmail");
   const nameField = document.getElementById("contactPerson");
   const roleField = document.getElementById("contactRole");
-  let phoneApplied = false;
 
   if (parsed.email) {
     if (!emailField.value.trim()) applyCardField("email", parsed.email);
@@ -533,13 +541,8 @@ function renderCardScanResults(parsed) {
   }
 
   parsed.phones.forEach((phone) => {
-    let applied = null;
-    if (!phoneApplied) {
-      applyCardField("phone", phone);
-      phoneApplied = true;
-      applied = "teléfono";
-    }
-    parts.push(cardScanRow("&#9742;", phone, applied, [{ field: "phone", label: "Añadir como teléfono" }]));
+    applyCardField("phone", phone);
+    parts.push(cardScanRow("&#9742;", phone, "teléfono", [{ field: "phone", label: "Añadir como teléfono" }]));
   });
 
   if (parsed.website) {
