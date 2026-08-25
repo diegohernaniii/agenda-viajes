@@ -11,6 +11,9 @@ const modalOverlay = document.getElementById("modalOverlay");
 const modalTitle = document.getElementById("modalTitle");
 const formError = document.getElementById("formError");
 const lastEditedHint = document.getElementById("lastEditedHint");
+const historySection = document.getElementById("historySection");
+const toggleHistoryBtn = document.getElementById("toggleHistoryBtn");
+const historyBox = document.getElementById("historyBox");
 const travelersBox = document.getElementById("travelersBox");
 const phonesBox = document.getElementById("phonesBox");
 const linksBox = document.getElementById("linksBox");
@@ -686,6 +689,68 @@ cardScanResults.addEventListener("click", (e) => {
   btn.disabled = true;
 });
 
+// ---------- Historial de cambios ----------
+
+function fmtDateTime(isoStr) {
+  const d = new Date(isoStr);
+  if (Number.isNaN(d.getTime())) return isoStr;
+  return d.toLocaleString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function historyEntryText(entry) {
+  const hasOld = entry.old_value !== null && entry.old_value !== undefined;
+  const hasNew = entry.new_value !== null && entry.new_value !== undefined;
+  if (hasOld && hasNew) {
+    return `${entry.field_label}: "${entry.old_value}" → "${entry.new_value}"`;
+  }
+  if (hasNew && entry.field_label === "Viaje creado") {
+    return `Viaje creado: ${entry.new_value}`;
+  }
+  if (hasNew) {
+    return `${entry.field_label} añadido: ${entry.new_value}`;
+  }
+  if (hasOld) {
+    return `${entry.field_label} eliminado: ${entry.old_value}`;
+  }
+  return entry.field_label;
+}
+
+function renderHistory(entries) {
+  if (!entries.length) {
+    historyBox.innerHTML = `<p class="section-hint" style="margin:8px 0 0;">Todavía no hay cambios registrados.</p>`;
+    return;
+  }
+  historyBox.innerHTML = entries
+    .map(
+      (entry) => `
+      <div class="history-entry">
+        <div class="history-entry-text">${escapeHtml(historyEntryText(entry))}</div>
+        <div class="history-entry-meta">${escapeHtml(entry.changed_by)} · ${fmtDateTime(entry.changed_at)}</div>
+      </div>`
+    )
+    .join("");
+}
+
+async function toggleHistory() {
+  const isOpen = historyBox.style.display !== "none";
+  if (isOpen) {
+    historyBox.style.display = "none";
+    toggleHistoryBtn.textContent = "Ver historial de cambios";
+    return;
+  }
+  toggleHistoryBtn.textContent = "Ocultar historial";
+  historyBox.style.display = "block";
+  historyBox.innerHTML = `<p class="section-hint" style="margin:8px 0 0;">Cargando...</p>`;
+  try {
+    const entries = await api(`/api/trips/${state.editingId}/history`);
+    renderHistory(entries);
+  } catch (err) {
+    historyBox.innerHTML = `<p class="field-error" style="margin:8px 0 0;">No se pudo cargar: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+toggleHistoryBtn.addEventListener("click", toggleHistory);
+
 // ---------- Modal: abrir/cerrar/guardar ----------
 
 function openModal(trip = null) {
@@ -696,6 +761,10 @@ function openModal(trip = null) {
   modalTitle.textContent = trip ? "Editar viaje" : "Nuevo viaje";
   lastEditedHint.textContent =
     trip && trip.updated_by ? `Última edición: ${trip.updated_by}` : "";
+  historySection.style.display = trip ? "block" : "none";
+  historyBox.style.display = "none";
+  historyBox.innerHTML = "";
+  toggleHistoryBtn.textContent = "Ver historial de cambios";
 
   document.getElementById("tripName").value = trip?.name || "";
   document.getElementById("tripPurpose").value = trip?.purpose || "";

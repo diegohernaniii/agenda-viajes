@@ -52,6 +52,18 @@ class LinkOut(BaseModel):
         from_attributes = True
 
 
+class TripHistoryEntryOut(BaseModel):
+    id: int
+    field_label: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    changed_by: str
+    changed_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class TripIn(BaseModel):
     name: str
     purpose: str = ""

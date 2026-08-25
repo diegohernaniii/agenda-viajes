@@ -57,6 +57,12 @@ class Trip(Base):
     links = relationship(
         "TripLink", back_populates="trip", cascade="all, delete-orphan", order_by="TripLink.id"
     )
+    history = relationship(
+        "TripHistoryEntry",
+        back_populates="trip",
+        cascade="all, delete-orphan",
+        order_by="TripHistoryEntry.id.desc()",
+    )
 
 
 class Traveler(Base):
@@ -90,6 +96,22 @@ class TripLink(Base):
     url = Column(String(1000), nullable=False)
 
     trip = relationship("Trip", back_populates="links")
+
+
+class TripHistoryEntry(Base):
+    """Un cambio concreto en un campo del viaje (para el historial detallado)."""
+
+    __tablename__ = "trip_history"
+
+    id = Column(Integer, primary_key=True)
+    trip_id = Column(Integer, ForeignKey("trips.id"), nullable=False)
+    field_label = Column(String(100), nullable=False)
+    old_value = Column(String(500), nullable=True)
+    new_value = Column(String(500), nullable=True)
+    changed_by = Column(String(80), nullable=False, default="")
+    changed_at = Column(DateTime, default=datetime.utcnow)
+
+    trip = relationship("Trip", back_populates="history")
 
 
 class Attachment(Base):

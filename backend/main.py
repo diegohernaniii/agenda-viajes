@@ -14,8 +14,17 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from auth import authenticate_user, get_current_user, hash_password, is_email_allowed, normalize_email
 from database import Base, SessionLocal, engine, get_db, run_migrations
-from models import AllowedEmail, Attachment, Traveler, Trip, TripLink, TripPhone, User
-from schemas import AttachmentOut, TripIn, TripOut
+from models import (
+    AllowedEmail,
+    Attachment,
+    Traveler,
+    Trip,
+    TripHistoryEntry,
+    TripLink,
+    TripPhone,
+    User,
+)
+from schemas import AttachmentOut, TripHistoryEntryOut, TripIn, TripOut
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOADS_DIR = BASE_DIR / "data" / "uploads"
@@ -190,6 +199,67 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     )
 
 
+# ---------- Historial de cambios ----------
+
+TRIP_FIELD_LABELS = {
+    "name": "Nombre del viaje",
+    "purpose": "Motivo del viaje",
+    "contact_person": "Persona de contacto",
+    "contact_role": "Puesto del contacto",
+    "contact_email": "Correo de contacto",
+    "start_date": "Fecha de ida",
+    "end_date": "Fecha de vuelta",
+    "notes": "Notas",
+}
+
+
+def _history_value(value) -> Optional[str]:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        value = value.isoformat()
+    value = str(value).strip()
+    return value or None
+
+
+def _record_scalar_changes(db: Session, trip: Trip, old: dict, new: dict, changed_by: str):
+    for field, label in TRIP_FIELD_LABELS.items():
+        old_value = _history_value(old.get(field))
+        new_value = _history_value(new.get(field))
+        if old_value != new_value:
+            db.add(
+                TripHistoryEntry(
+                    trip_id=trip.id,
+                    field_label=label,
+                    old_value=old_value,
+                    new_value=new_value,
+                    changed_by=changed_by,
+                )
+            )
+
+
+def _record_list_changes(
+    db: Session, trip: Trip, field_label: str, old_items: List[str], new_items: List[str], changed_by: str
+):
+    old_set, new_set = set(old_items), set(new_items)
+    for removed in old_set - new_set:
+        db.add(
+            TripHistoryEntry(
+                trip_id=trip.id, field_label=field_label, old_value=removed, new_value=None, changed_by=changed_by
+            )
+        )
+    for added in new_set - old_set:
+        db.add(
+            TripHistoryEntry(
+                trip_id=trip.id, field_label=field_label, old_value=None, new_value=added, changed_by=changed_by
+            )
+        )
+
+
+def _link_label(title: str, url: str) -> str:
+    return f"{title} ({url})" if title.strip() else url
+
+
 # ---------- API ----------
 
 @app.get("/api/trips", response_model=List[TripOut])
@@ -217,6 +287,20 @@ def create_trip(payload: TripIn, db: Session = Depends(get_db), user: User = Dep
         TripLink(title=l.title.strip(), url=l.url.strip()) for l in payload.links if l.url.strip()
     ]
     db.add(trip)
+    db.flush()
+
+    changed_by = user.full_name or user.email
+    db.add(
+        TripHistoryEntry(
+            trip_id=trip.id, field_label="Viaje creado", old_value=None, new_value=trip.name, changed_by=changed_by
+        )
+    )
+    _record_list_changes(db, trip, "Persona que viaja", [], [t.full_name for t in trip.travelers], changed_by)
+    _record_list_changes(db, trip, "Teléfono", [], [p.phone for p in trip.phones], changed_by)
+    _record_list_changes(
+        db, trip, "Documento compartido", [], [_link_label(l.title, l.url) for l in trip.links], changed_by
+    )
+
     db.commit()
     db.refresh(trip)
     return trip
@@ -238,6 +322,11 @@ def update_trip(
     if not trip:
         raise HTTPException(status_code=404, detail="Viaje no encontrado")
 
+    old_values = {field: getattr(trip, field) for field in TRIP_FIELD_LABELS}
+    old_travelers = [t.full_name for t in trip.travelers]
+    old_phones = [p.phone for p in trip.phones]
+    old_links = [_link_label(l.title, l.url) for l in trip.links]
+
     trip.name = payload.name
     trip.purpose = payload.purpose
     trip.contact_person = payload.contact_person
@@ -248,11 +337,22 @@ def update_trip(
     trip.notes = payload.notes
     trip.updated_by = user.full_name or user.email
 
-    trip.travelers = [Traveler(full_name=t.full_name) for t in payload.travelers if t.full_name.strip()]
-    trip.phones = [TripPhone(phone=p.strip()) for p in payload.phones if p.strip()]
+    new_travelers = [t.full_name.strip() for t in payload.travelers if t.full_name.strip()]
+    new_phones = [p.strip() for p in payload.phones if p.strip()]
+    new_links = [_link_label(l.title, l.url) for l in payload.links if l.url.strip()]
+
+    trip.travelers = [Traveler(full_name=n) for n in new_travelers]
+    trip.phones = [TripPhone(phone=p) for p in new_phones]
     trip.links = [
         TripLink(title=l.title.strip(), url=l.url.strip()) for l in payload.links if l.url.strip()
     ]
+
+    changed_by = user.full_name or user.email
+    new_values = {field: getattr(trip, field) for field in TRIP_FIELD_LABELS}
+    _record_scalar_changes(db, trip, old_values, new_values, changed_by)
+    _record_list_changes(db, trip, "Persona que viaja", old_travelers, new_travelers, changed_by)
+    _record_list_changes(db, trip, "Teléfono", old_phones, new_phones, changed_by)
+    _record_list_changes(db, trip, "Documento compartido", old_links, new_links, changed_by)
 
     db.commit()
     db.refresh(trip)
@@ -267,6 +367,19 @@ def delete_trip(trip_id: int, db: Session = Depends(get_db), user: User = Depend
     db.delete(trip)
     db.commit()
     return JSONResponse(content=None, status_code=204)
+
+
+@app.get("/api/trips/{trip_id}/history", response_model=List[TripHistoryEntryOut])
+def get_trip_history(trip_id: int, db: Session = Depends(get_db), user: User = Depends(require_login)):
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Viaje no encontrado")
+    return (
+        db.query(TripHistoryEntry)
+        .filter(TripHistoryEntry.trip_id == trip_id)
+        .order_by(TripHistoryEntry.id.desc())
+        .all()
+    )
 
 
 @app.post("/api/trips/{trip_id}/attachments", response_model=AttachmentOut, status_code=201)

@@ -533,6 +533,24 @@ tbody tr:hover { background: #f9fbfd; }
 }
 .attachment-file-link:hover { text-decoration: underline; }
 .attachment-item-file .attachment-title-input { width: 200px; }
+.history-entry {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.history-entry:last-child { border-bottom: none; }
+.history-entry-text { color: var(--text); }
+.history-entry-meta { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+#historyBox {
+  max-height: 260px;
+  overflow-y: auto;
+  margin-top: 8px;
+  padding: 4px 10px;
+  background: #f7f9fc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
 .attachment-uploader {
   font-size: 10px;
   color: var(--text-muted);
