@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -56,6 +56,13 @@ app = FastAPI(title="Agenda de Viajes")
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, same_site="lax")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+
+
+@app.get("/sw.js")
+def service_worker():
+    # Servido desde la raíz (no /static/) para que su alcance cubra toda la
+    # web y pueda registrarse como app instalable (PWA).
+    return FileResponse(BASE_DIR / "static" / "sw.js", media_type="application/javascript")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 templates.env.globals["asset_version"] = str(int(time.time()))
 
