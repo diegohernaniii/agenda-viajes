@@ -135,17 +135,17 @@ function renderTrips() {
     const notesHtml = trip.notes ? `<div style="font-weight:400;color:var(--text-muted);font-size:12px;margin-top:4px;">${escapeHtml(trip.notes)}</div>` : "";
 
     tr.innerHTML = `
-      <td class="trip-name">${escapeHtml(trip.name)}${purposeHtml}${notesHtml}</td>
-      <td>${travelersHtml}</td>
-      <td class="trip-dates">${fmtDate(trip.start_date)}</td>
-      <td class="trip-dates">${fmtDate(trip.end_date)}</td>
-      <td>${escapeHtml(trip.contact_person) || "—"}${trip.contact_role ? `<div style="color:var(--text-muted);font-size:12px;">${escapeHtml(trip.contact_role)}</div>` : ""}</td>
-      <td>
+      <td class="trip-name" data-label="Viaje">${escapeHtml(trip.name)}${purposeHtml}${notesHtml}</td>
+      <td data-label="Personas">${travelersHtml}</td>
+      <td class="trip-dates" data-label="Ida">${fmtDate(trip.start_date)}</td>
+      <td class="trip-dates" data-label="Vuelta">${fmtDate(trip.end_date)}</td>
+      <td data-label="Contacto">${escapeHtml(trip.contact_person) || "—"}${trip.contact_role ? `<div style="color:var(--text-muted);font-size:12px;">${escapeHtml(trip.contact_role)}</div>` : ""}</td>
+      <td data-label="Teléfono / Email">
         ${phonesHtml}
         <div style="color:var(--text-muted);font-size:12px;">${escapeHtml(trip.contact_email) || ""}</div>
       </td>
-      <td>${attachmentsPreviewHtml(trip.attachments || [], trip.links || [])}</td>
-      <td class="actions-cell">
+      <td data-label="Adjuntos">${attachmentsPreviewHtml(trip.attachments || [], trip.links || [])}</td>
+      <td class="actions-cell" data-label="">
         <button class="btn btn-secondary btn-sm" data-action="edit" data-id="${trip.id}">Editar</button>
         <button class="btn btn-danger btn-sm" data-action="delete" data-id="${trip.id}">Eliminar</button>
       </td>
