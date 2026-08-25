@@ -10,6 +10,7 @@ const searchInput = document.getElementById("searchInput");
 const modalOverlay = document.getElementById("modalOverlay");
 const modalTitle = document.getElementById("modalTitle");
 const formError = document.getElementById("formError");
+const lastEditedHint = document.getElementById("lastEditedHint");
 const travelersBox = document.getElementById("travelersBox");
 const phonesBox = document.getElementById("phonesBox");
 const linksBox = document.getElementById("linksBox");
@@ -193,11 +194,15 @@ function addLinkRow(title = "", url = "") {
 function attachmentItemHtml(att) {
   const removeBtn = `<button type="button" class="attachment-remove" data-attachment-id="${att.id}">&times;</button>`;
   const titleInput = `<input type="text" class="attachment-title-input" data-attachment-id="${att.id}" placeholder="Añadir título..." value="${escapeHtml(att.title)}">`;
+  const uploaderLabel = att.uploaded_by
+    ? `<div class="attachment-uploader">Subido por ${escapeHtml(att.uploaded_by)}</div>`
+    : "";
   if (att.kind === "image") {
     return `
       <div class="attachment-item">
         <a href="${att.url}" target="_blank" rel="noopener"><img src="${att.url}" class="attachment-thumb" alt="${escapeHtml(att.title || att.original_name)}"></a>
         ${titleInput}
+        ${uploaderLabel}
         ${removeBtn}
       </div>`;
   }
@@ -206,6 +211,7 @@ function attachmentItemHtml(att) {
       <div class="attachment-item attachment-item-audio">
         <audio controls src="${att.url}"></audio>
         ${titleInput}
+        ${uploaderLabel}
         ${removeBtn}
       </div>`;
   }
@@ -213,6 +219,7 @@ function attachmentItemHtml(att) {
     <div class="attachment-item attachment-item-file">
       <a href="${att.url}" target="_blank" rel="noopener" class="attachment-file-link">&#128206; ${escapeHtml(att.original_name)}</a>
       ${titleInput}
+      ${uploaderLabel}
       ${removeBtn}
     </div>`;
 }
@@ -687,6 +694,8 @@ function openModal(trip = null) {
   cardScanHint.style.display = "none";
   state.editingId = trip ? trip.id : null;
   modalTitle.textContent = trip ? "Editar viaje" : "Nuevo viaje";
+  lastEditedHint.textContent =
+    trip && trip.updated_by ? `Última edición: ${trip.updated_by}` : "";
 
   document.getElementById("tripName").value = trip?.name || "";
   document.getElementById("tripPurpose").value = trip?.purpose || "";

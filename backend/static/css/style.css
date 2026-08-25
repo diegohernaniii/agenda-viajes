@@ -348,7 +348,8 @@ tbody tr:hover { background: #f9fbfd; }
 .modal-header h2 { font-size: 17px; margin: 0; }
 .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted); }
 .modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
-.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; }
+.modal-footer-hint { flex: 1; font-size: 12px; color: var(--text-muted); min-width: 0; }
 
 .form-row { display: flex; gap: 14px; }
 .form-row > * { flex: 1; }
@@ -532,6 +533,11 @@ tbody tr:hover { background: #f9fbfd; }
 }
 .attachment-file-link:hover { text-decoration: underline; }
 .attachment-item-file .attachment-title-input { width: 200px; }
+.attachment-uploader {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
 .attachment-remove {
   position: absolute;
   top: -8px;
